@@ -96,7 +96,7 @@ main{flex:1;min-height:0;display:flex;flex-direction:column}
 </main>
 
 <script>
-const APP_VERSION = 'v0.3';
+const APP_VERSION = 'v0.4';
 document.getElementById('verLabel').textContent = APP_VERSION;
 
 /* ===================== 0. ZIP 해제 (외부 라이브러리 없음) ===================== */
@@ -206,7 +206,7 @@ function usermarkStyle(um){
   if(!um) return '';
   const st=[];
   const f = um.match(/F-(B?)(T?)(\d+)/);
-  if(f){ st.push('font-size:'+f[3]+'pt'); if(f[2]) st.push('font-family:Batang,"바탕",serif'); }
+  if(f){ st.push('font-size:'+f[3]+'pt'); if(f[2]) st.push("font-family:Batang,'바탕',serif"); }
   if(/(^|\s)B(\s|$)/.test(um) || (f&&f[1])) st.push('font-weight:bold');
   const bgr = h=>h.slice(4,6)+h.slice(2,4)+h.slice(0,2);   // DART 색상값은 BGR
   const bc = um.match(/BC0X([0-9A-F]{6})/i); if(bc) st.push('background-color:#'+bgr(bc[1]));
@@ -260,7 +260,8 @@ function renderTable(tbl, hl){
         const tg = c.tagName==='TH'?'th':'td';
         const cellHl = hl && hl.cells && hl.cells.get(ri*10000+ci);
         const st = rowStyle || cellHl || '';
-        h+='<'+tg+cellAttrs(c, st, st?'chg-cell':'')+'>'+inlineHtml(c)+'</'+tg+'>';
+        const inner = (hl && hl.cellHtml && hl.cellHtml.get(ri*10000+ci)) || inlineHtml(c);
+        h+='<'+tg+cellAttrs(c, st, st?'chg-cell':'')+'>'+inner+'</'+tg+'>';
         ci++;
       }
       h+='</tr>'; ri++;
@@ -402,16 +403,16 @@ function renderChars(toks, marks){
     if(tk.t==='\n'){ flush(); h+='<br>'; return; }
     const st=tk.style||null;
     if(cls!==open || st!==openStyle){ flush(); open=cls; openStyle=st; }
-    buf+=esc(tk.t);
+    buf+= (cls && (tk.t===' '||tk.t==='\u3000')) ? '<span class="c-ws">\u2423</span>' : esc(tk.t);
   });
   flush();
   return h.replace(/ {2,}/g, m=>'&nbsp;'.repeat(m.length-1)+' ');
 }
-function charDiff(bl, br, pid){
-  const ta=charTokens(bl.el), tb=charTokens(br.el);
+/* 두 요소의 인라인 내용을 글자 단위로 비교해 [좌 html, 우 html] 반환 */
+function charDiffInner(elA, elB){
+  const ta=charTokens(elA), tb=charTokens(elB);
   const ops=seqDiff(ta,tb,x=>x.t,x=>x.t);
   const mL=new Map(), mR=new Map();
-  // 같은 run 안에 삭제·추가가 함께 있으면 '변경'(노랑), 한쪽만 있으면 삭제(빨강)/추가(초록)
   let i=0;
   while(i<ops.length){
     if(ops[i][0]==='='){ i++; continue; }
@@ -420,8 +421,12 @@ function charDiff(bl, br, pid){
     const cls = (d.length&&a.length) ? 'c-chg' : (d.length?'c-del':'c-add');
     d.forEach(x=>mL.set(x,cls)); a.forEach(x=>mR.set(x,cls));
   }
+  return [renderChars(ta,mL), renderChars(tb,mR)];
+}
+function charDiff(bl, br, pid){
+  const [hA,hB]=charDiffInner(bl.el, br.el);
   const stL=usermarkStyle(bl.el.getAttribute('USERMARK')), stR=usermarkStyle(br.el.getAttribute('USERMARK'));
-  return [wrapPara(bl,stL,renderChars(ta,mL),'chg-para',pid), wrapPara(br,stR,renderChars(tb,mR),'chg-para',pid)];
+  return [wrapPara(bl,stL,hA,'chg-para',pid), wrapPara(br,stR,hB,'chg-para',pid)];
 }
 
 /* --- 표 셀 단위 diff --- */
@@ -431,7 +436,7 @@ function tableDiff(bl, br, pairBase, summary){
   const label=r=>{ const c=r.find(c=>c.text); return c?c.text:''; };
   const rowText=r=>r.map(c=>c.text).filter(Boolean).slice(1).join(' / ');
   const ops=seqDiff(RA,RB,rowKey,rowKey);
-  const hlL={rows:new Map(), cells:new Map(), rowPair:new Map()}, hlR={rows:new Map(), cells:new Map(), rowPair:new Map()};
+  const hlL={rows:new Map(), cells:new Map(), rowPair:new Map(), cellHtml:new Map()}, hlR={rows:new Map(), cells:new Map(), rowPair:new Map(), cellHtml:new Map()};
   let pid=pairBase;
   const markRowPair=(ia,ib)=>{ const id=pid++; if(ia!==undefined) hlL.rowPair.set(ia,id); if(ib!==undefined) hlR.rowPair.set(ib,id); return id; };
   let i=0;
@@ -458,7 +463,12 @@ function tableDiff(bl, br, pairBase, summary){
         changed=true;
         const isLab = ci===labIdxA || cj===labIdxB;   // 과목명 자체가 바뀐 경우는 '과목명: ' 접두어 생략
         const fl=t=>isLab?t:lab+': '+t;
-        if(ta&&tb){ hlL.cells.set(ia*10000+ci,HL_CHG); hlR.cells.set(ib*10000+cj,HL_CHG); summary.push({kind:'chg', L:fl(ta), R:fl(tb)}); }
+        if(ta&&tb){
+          hlL.cells.set(ia*10000+ci,HL_CHG); hlR.cells.set(ib*10000+cj,HL_CHG);
+          const [hA,hB]=charDiffInner(ra[ci].el, rb[cj].el);   // 셀 안에서도 바뀐 글자 표시
+          hlL.cellHtml.set(ia*10000+ci,hA); hlR.cellHtml.set(ib*10000+cj,hB);
+          summary.push({kind:'chg', L:fl(ta), R:fl(tb)});
+        }
         else if(ta){ hlL.cells.set(ia*10000+ci,HL_DEL); summary.push({kind:'del', L:fl(ta), R:''}); }
         else if(tb){ hlR.cells.set(ib*10000+cj,HL_ADD); summary.push({kind:'add', L:'', R:fl(tb)}); }
       };
@@ -517,10 +527,27 @@ function buildResult(blocksA, blocksB, meta, opts, onProgress){
     }
     const bid='b'+(blk++);
     if(it.kind==='same'){
-      stat.same++;
-      const h=renderBlock(it.L);
-      L+='<div class="blk same" data-b="'+bid+'">'+h+'</div>';
-      R+='<div class="blk same" data-b="'+bid+'">'+h+'</div>';
+      const hA=renderBlock(it.L), hB=renderBlock(it.R);
+      if(hA===hB){
+        stat.same++;
+        L+='<div class="blk same" data-b="'+bid+'">'+hA+'</div>';
+        R+='<div class="blk same" data-b="'+bid+'">'+hB+'</div>';
+        continue;
+      }
+      // 텍스트는 같고 서식(글자색·굵기·크기·정렬 등)만 다른 블록
+      stat.changed++;
+      let fl, fr;
+      if(it.L.type==='table'){
+        const rowsA=hA.match(/<tr[\s\S]*?<\/tr>/g)||[], rowsB=hB.match(/<tr[\s\S]*?<\/tr>/g)||[];
+        const rpL=new Map(), rpR=new Map();
+        for(let r=0;r<Math.max(rowsA.length,rowsB.length);r++) if(rowsA[r]!==rowsB[r]){ rpL.set(r,pid); rpR.set(r,pid); pid++; }
+        fl=renderTable(it.L.el,{rows:new Map(),cells:new Map(),rowPair:rpL}); fr=renderTable(it.R.el,{rows:new Map(),cells:new Map(),rowPair:rpR});
+      }else{
+        fl=renderBlock(it.L,null,'chg-para',pid); fr=renderBlock(it.R,null,'chg-para',pid); pid++;
+      }
+      summary.push({kind:'fmt', L:it.L.text, R:it.R.text, bid});
+      L+='<div class="blk diff k-fmt" data-b="'+bid+'">'+fl+'</div>';
+      R+='<div class="blk diff k-fmt" data-b="'+bid+'">'+fr+'</div>';
       continue;
     }
     // 빈 문단·페이지나누기만 추가/삭제된 경우: 차이로 세지 않고 자리만 맞춤
@@ -557,7 +584,7 @@ function buildResult(blocksA, blocksB, meta, opts, onProgress){
   }
   prog(88);
 
-  const kindLabel={chg:'변경',del:'삭제',add:'추가'};
+  const kindLabel={chg:'변경',del:'삭제',add:'추가',fmt:'서식'};
   const sumRows = summary.map(s=>'<tr data-b="'+s.bid+'"><td class="k '+s.kind+'">'+kindLabel[s.kind]+'</td><td>'+esc(trunc(s.L,90))+'</td><td>'+esc(trunc(s.R,90))+'</td></tr>').join('');
   const chapterOpts = chapters.map(c=>'<option value="'+c.id+'">'+esc(c.title)+'</option>').join('');
   const stamp=fmtDate(Date.now());
@@ -597,6 +624,8 @@ body{font-family:"Malgun Gothic","맑은 고딕",-apple-system,"Apple SD Gothic 
 .blk{padding:4px 10px;--blockbg:#fff;background:var(--blockbg)}
 .blk.same{--blockbg:#F2F2F2}
 .blk.diff.empty{--blockbg:#FFFFFF}
+.blk.diff.k-fmt{--blockbg:#DDEBF7}
+.blk.k-fmt table{background:#DDEBF7}
 .blk.chapter-title{padding:10px}
 .chapter-title>p{font-size:14pt;font-weight:bold;color:royalblue}
 p{font-size:12pt;line-height:1.6em;font-family:"바탕",Batang,serif;margin:0;max-width:600px;min-height:16px}
@@ -614,6 +643,8 @@ table.wide td:first-child,table.wide th:first-child{position:sticky;left:0;z-ind
 table.wide thead th:first-child,table.wide thead td:first-child{background:#dcdcdc}
 /* 글자 diff */
 .c-chg{background:#FFEB9C}.c-del{background:#FFC7CE}.c-add{background:#C6EFCE}
+.chg-cell .c-chg{background:#FFD966}.chg-cell .c-del{background:#FFC7CE}.chg-cell .c-add{background:#C6EFCE}
+.c-ws{opacity:.75;font-weight:normal}
 p.c-del,p.c-add,div.c-del,div.c-add{display:inline-block;max-width:600px}
 /* 플래시 */
 @keyframes flash{0%{box-shadow:inset 0 0 0 3px #140BE3}100%{box-shadow:inset 0 0 0 3px rgba(20,11,227,0)}}
@@ -625,7 +656,7 @@ p.c-del,p.c-add,div.c-del,div.c-add{display:inline-block;max-width:600px}
 .sum th{background:#DEDEDE;font-weight:bold;text-align:center;border:1px solid #A6A6A6;padding:4px 8px;font-size:12px;line-height:1.5}
 .sum td{border:1px solid #A6A6A6;padding:4px 8px;font-size:12px;line-height:1.5;word-break:break-all;vertical-align:top}
 .sum td.k{text-align:center;white-space:nowrap;width:60px}
-.sum td.k.chg{background:#FFEB9C}.sum td.k.add{background:#C6EFCE}.sum td.k.del{background:#FFC7CE}
+.sum td.k.chg{background:#FFEB9C}.sum td.k.add{background:#C6EFCE}.sum td.k.del{background:#FFC7CE}.sum td.k.fmt{background:#DDEBF7}
 .sum tbody tr{cursor:pointer}.sum tbody tr:hover td:not(.k){background:#F7F7F7}
 </style></head>
 <body>
@@ -640,7 +671,7 @@ p.c-del,p.c-add,div.c-del,div.c-add{display:inline-block;max-width:600px}
   <button id="next" title="다음 변경 (↓ / j)">다음 변경 ▶</button>
   <span class="pos" id="pos"></span>
   <select id="chap" title="챕터로 이동"><option value="">챕터 이동…</option>${chapterOpts}</select>
-  <span class="legend"><i style="background:#FFEB9C"></i>변경 <i style="background:#C6EFCE"></i>추가 <i style="background:#FFC7CE"></i>삭제<span class="ver">DSD 비교 ${APP_VERSION} · ${stamp}</span></span>
+  <span class="legend"><i style="background:#FFEB9C"></i>변경 <i style="background:#C6EFCE"></i>추가 <i style="background:#FFC7CE"></i>삭제 <i style="background:#DDEBF7"></i>서식만<span class="ver">DSD 비교 ${APP_VERSION} · ${stamp}</span></span>
 </div>
 <div class="panes" id="panes">
   <div class="pane" id="L">${L}</div>
@@ -683,7 +714,8 @@ p.c-del,p.c-add,div.c-del,div.c-add{display:inline-block;max-width:600px}
     for(var j=0;j<heights.length;j++){
       var seg=document.createElement('div');
       var l=lc[j], r=rc[j], c='#F2F2F2';
-      if(l.classList.contains('diff')){
+      if(l.classList.contains('k-fmt')) c='#DDEBF7';
+      else if(l.classList.contains('diff')){
         var le=l.classList.contains('empty'), re=r.classList.contains('empty');
         c = (!le&&!re)?'#FFEB9C':(re?'#FFC7CE':'#C6EFCE');
       }
