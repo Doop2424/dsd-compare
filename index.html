@@ -9,7 +9,7 @@
   color-scheme: light dark;
   --bg:#f3f4f6; --panel:#ffffff; --ink:#1b1f24; --muted:#6b7280; --line:#d9dde3;
   --accent:#140BE3; --accent-ink:#ffffff;
-  --del:#FFC7CE; --add:#C6EFCE; --chg:#FFEB9C;
+  --del:#FFC7CE; --add:#C6EFCE; --chg:#FFEB9C; --rep:#DDEBF7;
 }
 @media (prefers-color-scheme: dark){
   :root{ --bg:#15181d; --panel:#1f2329; --ink:#e6e8eb; --muted:#9aa3ad; --line:#363c45; --accent:#4f7df3; }
@@ -21,16 +21,25 @@ header{display:flex;align-items:center;gap:14px;padding:8px 16px;background:var(
 header h1{font-size:15px;font-weight:700;margin:0;white-space:nowrap;display:flex;align-items:center;gap:8px}
 header h1 .ver{font-size:11px;font-weight:700;color:var(--accent);border:1px solid var(--accent);border-radius:10px;padding:0 7px}
 header .sub{color:var(--muted);font-size:11.5px}
+.modes{display:flex;border:1px solid var(--line);border-radius:6px;overflow:visible;margin-top:4px;width:max-content}
+.modes button{border:0;border-radius:0;padding:4px 10px;font-size:12px;background:var(--panel)}
+.modes button:first-child{border-radius:6px 0 0 6px}.modes button:last-child{border-radius:0 6px 6px 0;border-left:1px solid var(--line)}
+.modes button.on{background:var(--accent);color:var(--accent-ink)}
 .inputs{display:flex;gap:8px;flex:1;min-width:460px}
-.side-in{flex:1;display:flex;flex-direction:column;gap:4px}
+.inputs[hidden]{display:none}
+.side-in{flex:1;display:flex;flex-direction:column;gap:4px;min-width:0}
 .drop{border:1.5px dashed var(--line);border-radius:6px;padding:7px 10px;min-height:40px;display:flex;align-items:center;gap:8px;cursor:pointer;background:var(--bg);position:relative}
 .drop.over{border-color:var(--accent);background:color-mix(in srgb,var(--accent) 8%,var(--bg))}
 .drop input[type=file]{position:absolute;inset:0;opacity:0;cursor:pointer;width:100%}
 .drop .tag{font-size:11px;font-weight:700;padding:2px 6px;border-radius:4px;white-space:nowrap}
 .drop.old .tag{background:var(--del);color:#7a1b1b}
 .drop.new .tag{background:var(--add);color:#1a5c1a}
+.drop.rep .tag{background:var(--rep);color:#1f3f66}
+.drop.aud .tag{background:var(--chg);color:#5c4a00}
 .drop .name{font-size:12.5px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;flex:1}
 .drop .name.empty{color:var(--muted)}
+.drop .kind{font-size:11px;color:var(--muted);white-space:nowrap}
+.drop .kind.warn{color:#b45309;font-weight:700}
 .side-in input[type=text]{font:inherit;font-size:12px;padding:4px 8px;border:1px solid var(--line);border-radius:4px;background:var(--panel);color:var(--ink)}
 .actions{display:flex;gap:6px;align-items:center;flex-wrap:wrap}
 button{font:inherit;font-size:13px;padding:7px 12px;border-radius:6px;border:1px solid var(--line);background:var(--panel);color:var(--ink);cursor:pointer;position:relative}
@@ -38,12 +47,13 @@ button:hover{border-color:var(--accent)}
 button.primary{background:var(--accent);color:var(--accent-ink);border-color:var(--accent)}
 button:disabled{opacity:.45;cursor:not-allowed}
 label.opt{font-size:12px;display:flex;align-items:center;gap:4px;color:var(--muted);white-space:nowrap}
-/* 말풍선 */
+label.opt[hidden]{display:none}
 [data-tip]{position:relative}
-[data-tip]:hover::after{content:attr(data-tip);position:absolute;top:calc(100% + 6px);left:50%;transform:translateX(-50%);background:#262626;color:#fff;font-size:11.5px;font-weight:400;line-height:1.4;padding:5px 9px;border-radius:5px;white-space:pre-line;width:max-content;max-width:260px;z-index:50;pointer-events:none;text-align:left}
+[data-tip]:hover::after{content:attr(data-tip);position:absolute;top:calc(100% + 6px);left:50%;transform:translateX(-50%);background:#262626;color:#fff;font-size:11.5px;font-weight:400;line-height:1.4;padding:5px 9px;border-radius:5px;white-space:pre-line;width:max-content;max-width:280px;z-index:50;pointer-events:none;text-align:left}
 [data-tip]:hover::before{content:"";position:absolute;top:100%;left:50%;transform:translateX(-50%);border:6px solid transparent;border-bottom-color:#262626;z-index:50}
 .actions [data-tip]:hover::after{left:auto;right:0;transform:none}
 .actions [data-tip]:hover::before{left:auto;right:14px;transform:none}
+.modes [data-tip]:hover::after{left:0;transform:none}
 main{flex:1;min-height:0;display:flex;flex-direction:column}
 #statusbar{display:flex;align-items:center;gap:12px;padding:5px 16px;font-size:12px;color:var(--muted);border-bottom:1px solid var(--line);background:var(--panel)}
 #statusbar.err #statusText{color:#b91c1c}
@@ -54,15 +64,19 @@ main{flex:1;min-height:0;display:flex;flex-direction:column}
 #view{flex:1;border:0;width:100%;background:#fff}
 .empty-hint{flex:1;display:flex;align-items:center;justify-content:center;color:var(--muted);text-align:center;padding:40px;line-height:1.8}
 .empty-hint b{color:var(--ink)}
+.empty-hint [hidden]{display:none}
 </style>
 </head>
 <body>
 <header>
   <div>
     <h1>DSD 비교 <span class="ver" id="verLabel"></span></h1>
-    <div class="sub">DART 편집기 .dsd 두 개를 좌·우로 비교</div>
+    <div class="modes">
+      <button id="modePair" class="on" data-tip="이전·이후 .dsd 두 개를&#10;처음부터 끝까지 좌우로 비교합니다">DSD ↔ DSD</button>
+      <button id="modeRep" data-tip="분기·반기·사업보고서 .dsd 의 Ⅲ장 재무제표·주석을&#10;감사(검토)전 연결·별도 .dsd 와 비교합니다&#10;결과는 「연결」「별도」 탭 2개">보고서 ↔ 연결·별도</button>
+    </div>
   </div>
-  <div class="inputs">
+  <div class="inputs" id="inPair">
     <div class="side-in">
       <div class="drop old" id="dropOld" data-tip="이전 버전 .dsd (좌측에 표시)&#10;클릭하거나 파일을 끌어다 놓으세요">
         <span class="tag">이전</span><span class="name empty" id="nameOld">파일 선택 또는 드래그</span>
@@ -78,26 +92,54 @@ main{flex:1;min-height:0;display:flex;flex-direction:column}
       <input type="text" id="descNew" placeholder="버전 설명 (예: 이후 버전 · 2026.08.19 정정본)">
     </div>
   </div>
+  <div class="inputs" id="inRep" hidden>
+    <div class="side-in">
+      <div class="drop rep" id="dropRep" data-tip="분기·반기·사업보고서 .dsd (우측에 표시)&#10;세 파일을 한꺼번에 끌어다 놓으면 자동으로 나눠 넣습니다">
+        <span class="tag">보고서</span><span class="name empty" id="nameRep">파일 선택 또는 드래그</span><span class="kind" id="kindRep"></span>
+        <input type="file" id="fileRep" accept=".dsd,.zip">
+      </div>
+    </div>
+    <div class="side-in">
+      <div class="drop aud" id="dropCon" data-tip="감사(검토)전 연결 .dsd (「연결」 탭 좌측)&#10;연결이 없는 회사는 비워 두세요">
+        <span class="tag">연결</span><span class="name empty" id="nameCon">파일 선택 또는 드래그</span><span class="kind" id="kindCon"></span>
+        <input type="file" id="fileCon" accept=".dsd,.zip">
+      </div>
+    </div>
+    <div class="side-in">
+      <div class="drop aud" id="dropSep" data-tip="감사(검토)전 별도 .dsd (「별도」 탭 좌측)">
+        <span class="tag">별도</span><span class="name empty" id="nameSep">파일 선택 또는 드래그</span><span class="kind" id="kindSep"></span>
+        <input type="file" id="fileSep" accept=".dsd,.zip">
+      </div>
+    </div>
+  </div>
   <div class="actions">
     <button id="btnSwap" data-tip="이전·이후 파일과 설명을 서로 바꿉니다">⇄</button>
-    <label class="opt" data-tip="표지·검토보고서를 빼고&#10;(첨부) 재무제표부터 비교합니다"><input type="checkbox" id="optAttach"> 첨부부터</label>
-    <button class="primary" id="btnRun" disabled data-tip="두 파일을 읽어 블록·셀·글자 단위로 비교하고&#10;아래에 결과를 표시합니다">비교</button>
+    <label class="opt" id="optAttachWrap" data-tip="표지·검토보고서를 빼고&#10;(첨부) 재무제표부터 비교합니다"><input type="checkbox" id="optAttach"> 첨부부터</label>
+    <button class="primary" id="btnRun" disabled data-tip="파일을 읽어 블록·셀·글자 단위로 비교하고&#10;아래에 결과를 표시합니다">비교</button>
     <button id="btnDown" disabled data-tip="표시 중인 비교결과를 단일 HTML 파일로 저장합니다&#10;(열어서 그대로 볼 수 있음)">HTML 다운로드</button>
   </div>
 </header>
 <main>
   <div id="statusbar"><span id="statusText">이전 파일과 이후 파일을 넣고 [비교]를 누르세요.</span><div class="prog"><div id="progBar"></div></div><span id="pct">0%</span></div>
   <div class="empty-hint" id="hint">
-    왼쪽에 <b>이전 버전</b>, 오른쪽에 <b>이후 버전</b> .dsd 를 넣으면<br>
-    블록(문단·표) 단위로 대응시킨 뒤 문단은 글자, 표는 셀 단위로 차이를 표시합니다.<br>
-    결과는 그대로 단일 HTML로 저장할 수 있습니다.
+    <div id="hintPair">
+      왼쪽에 <b>이전 버전</b>, 오른쪽에 <b>이후 버전</b> .dsd 를 넣으면<br>
+      블록(문단·표) 단위로 대응시킨 뒤 문단은 글자, 표는 셀 단위로 차이를 표시합니다.<br>
+      결과는 그대로 단일 HTML로 저장할 수 있습니다.
+    </div>
+    <div id="hintRep" hidden>
+      <b>보고서</b>(분기·반기·사업보고서) .dsd 와 감사(검토)전 <b>연결</b>·<b>별도</b> .dsd 를 넣으면<br>
+      보고서 Ⅲ장의 재무제표·주석만 잘라 각각 비교하고, 결과를 「연결」「별도」 탭으로 보여줍니다.<br>
+      재무제표 본문은 금액 기준으로 맞추고(주석번호 열·부호 무시), XBRL 과목명만 다른 행은 <b>명칭</b>으로 따로 표시합니다.
+    </div>
   </div>
   <iframe id="view" style="display:none"></iframe>
 </main>
 
 <script>
-const APP_VERSION = 'v0.4';
+const APP_VERSION = 'v0.5';
 document.getElementById('verLabel').textContent = APP_VERSION;
+
 
 /* ===================== 0. ZIP 해제 (외부 라이브러리 없음) ===================== */
 async function unzipEntry(buf, wantName){
@@ -188,16 +230,11 @@ function makeBlock(el, section){
   return b;
 }
 
+/* 표의 직접 행만 (중첩 표의 행 제외) */
+function directRows(tbl){ return [...tbl.children].filter(c=>/^(THEAD|TBODY|TFOOT)$/.test(c.tagName)).flatMap(p=>[...p.children].filter(r=>r.tagName==='TR')); }
+const isCell=c=>/^(TD|TH|TU|TE)$/.test(c.tagName);
 function tableRows(tbl){
-  const rows=[];
-  for(const tr of tbl.getElementsByTagName('TR')){
-    const cells=[];
-    for(const c of tr.children){
-      if(c.tagName==='TD'||c.tagName==='TH'||c.tagName==='TU') cells.push({el:c, text:norm(c.textContent)});
-    }
-    rows.push(cells);
-  }
-  return rows;
+  return directRows(tbl).map(tr=>[...tr.children].filter(isCell).map(c=>({el:c, text:norm(c.textContent)})));
 }
 
 /* ===================== 2. 렌더링 (DSD → HTML) ===================== */
@@ -250,18 +287,19 @@ function renderTable(tbl, hl){
   for(const part of tbl.children){
     if(part.tagName!=='THEAD'&&part.tagName!=='TBODY'&&part.tagName!=='TFOOT') continue;
     h+='<'+part.tagName.toLowerCase()+'>';
-    for(const tr of part.getElementsByTagName('TR')){
+    for(const tr of [...part.children].filter(r=>r.tagName==='TR')){
       const rowStyle = hl && hl.rows && hl.rows.get(ri);
       const pid = hl && hl.rowPair && hl.rowPair.get(ri);
       h+='<tr'+(pid!==undefined?' data-pair="'+pid+'" class="chg-row"':'')+'>';
       let ci=0;
       for(const c of tr.children){
-        if(!(c.tagName==='TD'||c.tagName==='TH'||c.tagName==='TU')) continue;
+        if(!isCell(c)) continue;
         const tg = c.tagName==='TH'?'th':'td';
         const cellHl = hl && hl.cells && hl.cells.get(ri*10000+ci);
         const st = rowStyle || cellHl || '';
         const inner = (hl && hl.cellHtml && hl.cellHtml.get(ri*10000+ci)) || inlineHtml(c);
-        h+='<'+tg+cellAttrs(c, st, st?'chg-cell':'')+'>'+inner+'</'+tg+'>';
+        const cc = (hl && hl.cellCls && hl.cellCls.get(ri*10000+ci)) || (st?'chg-cell':'');
+        h+='<'+tg+cellAttrs(c, st, cc)+'>'+inner+'</'+tg+'>';
         ci++;
       }
       h+='</tr>'; ri++;
@@ -495,114 +533,511 @@ function tableDiff(bl, br, pairBase, summary){
   return [renderTable(bl.el,hlL), renderTable(br.el,hlR), pid];
 }
 
-/* ===================== 4. 결과 HTML 조립 ===================== */
+/* ===================== 4. 보고서 ↔ 연결·별도 DSD 모드 ===================== */
+/* 분기·반기·사업보고서 DSD 의 Ⅲ장에서 연결/별도 재무제표·주석만 잘라 감사(검토)전 DSD 와 비교한다.
+   - 블록태깅 래퍼(칸 1개짜리 큰 표) 해제, XBRL 금액 칸(TE) 인식
+   - 주석 제목 분리·「(연결)」 꼬리 제거, 표지·확인문·「별첨 주석은…」 등 정형 문구 제외
+   - 재무제표 본문은 금액 기준으로 행을 맞추고(주석번호 열·부호 무시) 과목명만 다르면 '명칭' */
+
+const STMT_NAMES=[['재무상태표','BS'],['포괄손익계산서','CI'],['손익계산서','IS'],['자본변동표','SCE'],['현금흐름표','CF']];
+const STMT_ORDER=['BS','IS','CI','SCE','CF'];
+function stmtKind(t){
+  const s=(t||'').replace(/\s+/g,'').replace(/^[\d\-.]+/,'').replace(/^\(?(연결|별도)\)?/,'');
+  for(const [n,k] of STMT_NAMES) if(s.startsWith(n)) return k;
+  return null;
+}
+function docKind(doc){
+  const dn=doc.getElementsByTagName('DOCUMENT-NAME')[0];
+  const name=dn?norm(dn.textContent):'';
+  const code=dn?dn.getAttribute('ACODE')||'':'';
+  const nSec=doc.getElementsByTagName('SECTION-1').length;
+  if(/^1101\d$/.test(code) || (/보고서$/.test(name) && !/감사|검토/.test(name) && nSec>=5)) return {kind:'report',name};
+  if(/연결/.test(name)) return {kind:'con',name};
+  // 문서명이 애매하면 본문 첫 재무제표 제목으로 판단
+  const t=[...doc.getElementsByTagName('TD')].slice(0,400).map(x=>norm(x.textContent).replace(/\s/g,'')).find(x=>stmtKind(x));
+  if(t && /^연결/.test(t)) return {kind:'con',name};
+  return {kind:'sep',name};
+}
+
+/* 칸 1개짜리 래퍼 표면 그 칸을 돌려줌 */
+function wrapperCell(tbl){
+  const rs=directRows(tbl); if(rs.length!==1) return null;
+  const cs=[...rs[0].children].filter(isCell); if(cs.length!==1) return null;
+  return [...cs[0].children].some(c=>c.tagName==='P'||c.tagName==='TABLE') ? cs[0] : null;
+}
+function noteTitleBlock(el,text,no){ return {type:'nt', tag:'P', el, text, no, key:'NT|'+no, section:''}; }
+
+/* 블록 평탄화 (보고서·감사전 공통) */
+function flattenBlocks(el, out, opt){
+  for(const ch of el.children){
+    const tag=ch.tagName;
+    if(SKIP.has(tag)) continue;
+    if(tag==='TITLE'||tag==='COVER-TITLE'){
+      const t=norm(ch.textContent);
+      if(opt.report){
+        if(ch.getAttribute('AASSOCNOTE')) continue;            // "3. 연결재무제표 주석" 같은 장 제목
+        const tt=t.replace(/\s*\((연결|별도)\)\s*$/,'');
+        const m=tt.match(/^(\d{1,3})\.\s*(.+)$/);
+        if(m){ out.push(noteTitleBlock(ch,tt,+m[1])); continue; }
+      }
+      out.push({type:'sec', tag, el:ch, text:t, key:'S|'+t});
+      continue;
+    }
+    if(tag==='TABLE'){
+      const cell=wrapperCell(ch);
+      if(cell){ flattenBlocks(cell,out,opt); continue; }
+      out.push(makeBlock(ch,'')); continue;
+    }
+    if(tag==='P'||tag==='PGBRK'){ out.push(makeBlock(ch,'')); continue; }
+    if(ch.children.length) flattenBlocks(ch,out,opt);
+  }
+}
+
+/* 문단을 &cr; 단위 줄로 쪼갬 (인라인 USERMARK 유지) */
+function paraLines(p){
+  const lines=[[]];
+  (function walk(n, um){
+    for(const c of n.childNodes){
+      if(c.nodeType===3){
+        const parts=c.nodeValue.split('&cr;');
+        parts.forEach((t,i)=>{ if(i>0) lines.push([]); if(t) lines[lines.length-1].push({t,um}); });
+      }else if(c.nodeType===1) walk(c, c.getAttribute('USERMARK')||um);
+    }
+  })(p, '');
+  return lines.map(segs=>({segs, text:norm(segs.map(s=>s.t).join(''))}));
+}
+function buildPara(doc, src, lines){
+  const p=doc.createElement('P');
+  const um=src.getAttribute('USERMARK'); if(um) p.setAttribute('USERMARK',um);
+  lines.forEach((ln,i)=>{
+    if(i>0) p.appendChild(doc.createTextNode('&cr;'));
+    for(const s of ln.segs){
+      if(s.um){ const sp=doc.createElement('SPAN'); sp.setAttribute('USERMARK',s.um); sp.appendChild(doc.createTextNode(s.t)); p.appendChild(sp); }
+      else p.appendChild(doc.createTextNode(s.t));
+    }
+  });
+  return p;
+}
+/* 감사전 DSD: 문단 안에 붙은 「N. 주석제목」 줄을 따로 떼어냄 (번호가 순서대로일 때만) */
+function splitNoteTitles(blocks, doc, refTitles){
+  let last=0; const out=[];
+  const okTitle=(t,first)=>{
+    const m=t.match(/^(\d{1,3})\.\s*(\S.{0,58})$/); if(!m) return null;
+    const no=+m[1];
+    const ref=refTitles&&refTitles.get(no);
+    if(no===last+1){
+      if(!ref || first || similarity(t,ref)>=0.25) return no;
+      return null;
+    }
+    if(ref && no>last+1 && similarity(t,ref)>=0.5) return no;   // 번호를 건너뛴 경우
+    return null;
+  };
+  for(const b of blocks){
+    if(b.type!=='p'){ out.push(b); continue; }
+    const lines=paraLines(b.el);
+    const firstIdx=lines.findIndex(l=>l.text);
+    const hits=lines.map((l,i)=>{ const no=l.text?okTitle(l.text,i===firstIdx):null; if(no) last=no; return no; });
+    if(!hits.some(Boolean)){ out.push(b); continue; }
+    let cur=[];
+    const flush=()=>{ while(cur.length&&!cur[cur.length-1].text) cur.pop(); while(cur.length&&!cur[0].text) cur.shift(); if(cur.length){ const nb=makeBlock(buildPara(doc,b.el,cur),''); if(nb.text) out.push(nb); } cur=[]; };
+    lines.forEach((l,i)=>{ if(hits[i]){ flush(); out.push(noteTitleBlock(b.el,l.text,hits[i])); } else cur.push(l); });
+    flush();
+  }
+  return out;
+}
+
+const isBoiler=b=>{
+  if(b.type==='pgbrk') return true;
+  if((b.type==='p'||b.type==='table') && !b.text) return true;
+  const t=b.text.replace(/\s+/g,' ');
+  if(/^별첨\s*주석은/.test(t)) return true;
+  if(b.type==='table' && /제\s*\d+\s*\(?\s*(당|전)\s*\)?/.test(t) && /부터|현재/.test(t) && b.rows.length<=6 && !/\d{1,3},\d{3}/.test(t)) return true;  // 기수·기간 머리표
+  return false;
+};
+
+/* 보고서 쪽: which = 'con' | 'sep' */
+function reportPart(doc, which){
+  const want = which==='con'
+    ? {fs:['D-0-3-2-0'], nt:['D-0-3-3-0'], fsRe:/^\d+\.\s*연결\s*재무제표$/, ntRe:/^\d+\.\s*연결\s*재무제표\s*주석/}
+    : {fs:['D-0-3-4-0'], nt:['D-0-3-5-0'], fsRe:/^\d+\.\s*재무제표$/,       ntRe:/^\d+\.\s*재무제표\s*주석/};
+  const secs=[...doc.getElementsByTagName('SECTION-2')];
+  const head=s=>[...s.children].find(c=>c.tagName==='TITLE');
+  const find=(codes,re)=>secs.find(s=>{ const t=head(s); if(!t) return false; return codes.includes(t.getAttribute('AASSOCNOTE')) || re.test(norm(t.textContent)); });
+  const fsSec=find(want.fs,want.fsRe), ntSec=find(want.nt,want.ntRe);
+  const stmts=[];
+  if(fsSec){
+    for(const g of fsSec.getElementsByTagName('TABLE-GROUP')){
+      const t=[...g.children].find(c=>c.tagName==='TITLE');
+      const title=t?norm(t.textContent).replace(/^[\d\-.]+\s*/,''):'';
+      const kind=stmtKind(title); if(!kind) continue;
+      const tables=[...g.children].filter(c=>c.tagName==='TABLE');
+      if(!tables.length) continue;
+      const body=tables.reduce((a,c)=>directRows(c).length>directRows(a).length?c:a);
+      stmts.push({kind, title, body:makeBlock(body,'')});
+    }
+  }
+  const notes=[];
+  if(ntSec) flattenBlocks(ntSec, notes, {report:true});
+  return {found:!!(fsSec||ntSec), stmts:normKinds(stmts), notes:notes.filter(b=>b.type!=='sec' && !isBoiler(b))};
+}
+/* 감사(검토)전 DSD 쪽 */
+function auditPart(doc, refTitles){
+  const body=doc.getElementsByTagName('BODY')[0]||doc.documentElement;
+  const all=[]; flattenBlocks(body, all, {report:false});
+  const stmts=[]; let lastFs=-1;
+  for(let i=0;i<all.length;i++){
+    const b=all[i];
+    if(b.type!=='table') continue;
+    const kind=stmtKind(b.text.replace(/\s+/g,''));
+    if(!kind || b.rows.length>8) continue;
+    // 머리표 다음의 본문 표
+    let j=i+1; while(j<all.length && !(all[j].type==='table' && all[j].rows.length>=3)) j++;
+    if(j>=all.length) continue;
+    stmts.push({kind, title:norm(b.rows[0]&&b.rows[0][0]?b.rows[0][0].text:b.text).split(' ')[0], body:all[j]});
+    lastFs=j; i=j;
+  }
+  // 주석 시작: 마지막 재무제표 이후 '주석' 제목(또는 그 다음 블록)부터
+  let st=all.findIndex((b,i)=>i>lastFs && b.type==='sec' && /주\s*석/.test(b.text));
+  st = st>=0 ? st+1 : lastFs+1;
+  let notes=all.slice(st).filter(b=>b.type!=='sec' && !isBoiler(b));
+  notes=splitNoteTitles(notes, doc, refTitles);
+  return {stmts:normKinds(stmts), notes};
+}
+/* 포괄손익계산서 하나만 있으면 IS 로 맞춤 */
+function normKinds(stmts){
+  const has=k=>stmts.some(s=>s.kind===k);
+  if(has('CI') && !has('IS')) stmts.forEach(s=>{ if(s.kind==='CI') s.kind='IS'; });
+  return stmts;
+}
+
+/* ---------- 재무제표 본문: 금액 기준 대사 ---------- */
+function gridRows(tbl){
+  const rows=directRows(tbl); const occ=[]; const out=[];
+  rows.forEach((tr,ri)=>{
+    occ[ri]=occ[ri]||[]; let col=0; const cells=[];
+    for(const c of tr.children){
+      if(!isCell(c)) continue;
+      while(occ[ri][col]) col++;
+      const cs=+(c.getAttribute('COLSPAN')||1), rs=+(c.getAttribute('ROWSPAN')||1);
+      for(let r=0;r<rs;r++){ occ[ri+r]=occ[ri+r]||[]; for(let k=0;k<cs;k++) occ[ri+r][col+k]=1; }
+      cells.push({el:c, text:norm(c.textContent), col});
+      col+=cs;
+    }
+    const head = tr.parentNode.tagName==='THEAD' || (cells.length && cells.every(x=>x.el.tagName==='TH'));
+    out.push({head, cells});
+  });
+  return out;
+}
+function amtVal(t){
+  const s=(t||'').replace(/\s/g,'');
+  if(!/\d/.test(s)) return null;
+  if(!/^\(?[-△▲]?\d{1,3}(,\d{3})*(\.\d+)?\)?$/.test(s) && !/^\(?[-△▲]?\d+(\.\d+)?\)?$/.test(s)) return null;
+  const v=s.replace(/[(),\-△▲]/g,'').replace(/^0+(?=\d)/,'');
+  return /^0*(\.0+)?$/.test(v) ? null : v;    // 0 은 비교 대상에서 제외
+}
+function fsRecords(block){
+  const g=gridRows(block.el);
+  let noteCol=-1;
+  for(const r of g){ if(!r.head && !r.cells.some(c=>c.el.tagName==='TH')) continue; const c=r.cells.find(c=>c.text.replace(/\s/g,'')==='주석'); if(c){ noteCol=c.col; break; } }
+  const recs=[];
+  g.forEach((r,ri)=>{
+    if(r.head) return;
+    const lab=r.cells.length?r.cells[0].text:'';
+    const amts=[];
+    r.cells.forEach((c,ci)=>{ if(ci===0 || c.col===noteCol) return; const v=amtVal(c.text); if(v) amts.push({ci, v, t:c.text}); });
+    if(!amts.length) return;
+    recs.push({ri, lab, nlab:lab.replace(/[\s　·ㆍ]/g,''), amts, key:amts.map(a=>a.v).sort().join('|')});
+  });
+  return recs;
+}
+const HL_NM='background-color:#DDEBF7';
+function fsDiff(bA, bB, pidBase, summary){
+  const RA=fsRecords(bA), RB=fsRecords(bB);
+  const hlL={rows:new Map(), cells:new Map(), rowPair:new Map(), cellCls:new Map()}, hlR={rows:new Map(), cells:new Map(), rowPair:new Map(), cellCls:new Map()};
+  let pid=pidBase; const cnt={chg:0,add:0,del:0,nm:0};
+  const nm=(a,b)=>{
+    hlL.cells.set(a.ri*10000,HL_NM); hlL.cellCls.set(a.ri*10000,'nm-cell');
+    hlR.cells.set(b.ri*10000,HL_NM); hlR.cellCls.set(b.ri*10000,'nm-cell');
+    summary.push({kind:'nm', L:a.lab, R:b.lab}); cnt.nm++;
+  };
+  // ① 금액 묶음이 같은 행끼리 (순서 무관) — XBRL 은 소계 행 위치·순서가 감사보고서와 다를 수 있음
+  const usedA=new Set(), usedB=new Set(); const order=[]; const pairsAll=[];
+  const byKey=new Map(); RB.forEach((r,i)=>{ if(!byKey.has(r.key)) byKey.set(r.key,[]); byKey.get(r.key).push(i); });
+  RA.forEach((a,ai)=>{
+    const l=(byKey.get(a.key)||[]).filter(i=>!usedB.has(i)); if(!l.length) return;
+    let best=l[0], bs=-1; l.forEach(i=>{ const s=a.nlab===RB[i].nlab?2:similarity(a.nlab,RB[i].nlab)-Math.abs(i-ai)/1000; if(s>bs){bs=s;best=i;} });
+    usedA.add(ai); usedB.add(best); pairsAll.push([ai,best]); if(a.nlab!==RB[best].nlab) order.push(['nm',ai,best]);
+  });
+  // ② 남은 행: 공통 금액·과목명 유사도로 짝 → 금액 변경, 짝 없으면 추가·삭제
+  const restA=RA.map((r,i)=>i).filter(i=>!usedA.has(i)), restB=RB.map((r,i)=>i).filter(i=>!usedB.has(i));
+  const cand=[];
+  restA.forEach(ai=>{ const a=RA[ai]; restB.forEach(bi=>{ const b=RB[bi];
+    const sb=new Map(); b.amts.forEach(x=>sb.set(x.v,(sb.get(x.v)||0)+1));
+    let shared=0; a.amts.forEach(x=>{ const n=sb.get(x.v)||0; if(n){ shared++; sb.set(x.v,n-1); } });
+    const ls=a.nlab===b.nlab?1:similarity(a.nlab,b.nlab);
+    const sc=shared*2+(ls>=0.5?ls*3:0);
+    if(sc>0) cand.push([sc-Math.abs(ai/RA.length-bi/RB.length),ai,bi]);
+  }); });
+  cand.sort((x,y)=>y[0]-x[0]);
+  cand.forEach(([sc,ai,bi])=>{ if(usedA.has(ai)||usedB.has(bi)) return; usedA.add(ai); usedB.add(bi); pairsAll.push([ai,bi]); order.push(['chg',ai,bi]); });
+  restA.filter(i=>!usedA.has(i)).forEach(ai=>order.push(['del',ai,-1]));
+  restB.filter(i=>!usedB.has(i)).forEach(bi=>order.push(['add',-1,bi]));
+  // 문서 순서대로 요약
+  order.sort((x,y)=>(x[1]>=0?RA[x[1]].ri:RB[x[2]].ri*1.0001)-(y[1]>=0?RA[y[1]].ri:RB[y[2]].ri*1.0001));
+  for(const [k,ai,bi] of order){
+    const a=RA[ai], b=RB[bi];
+    if(k==='nm'){ nm(a,b); continue; }
+    if(k==='del'){ hlL.rows.set(a.ri,HL_DEL); hlL.rowPair.set(a.ri,pid++); summary.push({kind:'del', L:a.lab+': '+a.amts.map(x=>x.t).join(' / '), R:''}); cnt.del++; continue; }
+    if(k==='add'){ hlR.rows.set(b.ri,HL_ADD); hlR.rowPair.set(b.ri,pid++); summary.push({kind:'add', L:'', R:b.lab+': '+b.amts.map(x=>x.t).join(' / ')}); cnt.add++; continue; }
+    const pool=new Map(); b.amts.forEach(x=>pool.set(x.v,(pool.get(x.v)||[]).concat(x)));
+    const missA=[]; a.amts.forEach(x=>{ const l=pool.get(x.v); if(l&&l.length) l.shift(); else missA.push(x); });
+    const missB=[]; for(const l of pool.values()) missB.push(...l);
+    missB.sort((x,y)=>x.ci-y.ci);
+    const id=pid++;
+    missA.forEach(x=>hlL.cells.set(a.ri*10000+x.ci,HL_CHG));
+    missB.forEach(x=>hlR.cells.set(b.ri*10000+x.ci,HL_CHG));
+    if(a.nlab!==b.nlab){ hlL.cells.set(a.ri*10000,HL_NM); hlL.cellCls.set(a.ri*10000,'nm-cell'); hlR.cells.set(b.ri*10000,HL_NM); hlR.cellCls.set(b.ri*10000,'nm-cell'); }
+    hlL.rowPair.set(a.ri,id); hlR.rowPair.set(b.ri,id);
+    summary.push({kind:'chg', L:a.lab+': '+(missA.map(x=>x.t).join(' / ')||'(금액 없음)'), R:b.lab+': '+(missB.map(x=>x.t).join(' / ')||'(금액 없음)')}); cnt.chg++;
+  }
+  const al=alignedTables(bA.el,bB.el,RA,RB,pairsAll,hlL,hlR);
+  return al ? [al[0],al[1],pid,cnt] : [renderTable(bA.el,hlL), renderTable(bB.el,hlR), pid, cnt];
+}
+
+/* 대응된 행끼리 같은 줄에 오도록 두 표를 다시 배열 (금액 순서는 원본 그대로, 행 순서만 감사전 기준) */
+let alSeq=0;
+function rowHtml(tr, ri, hl){
+  const rowStyle=hl.rows.get(ri), pid=hl.rowPair.get(ri);
+  let h='<tr'+(pid!==undefined?' data-pair="'+pid+'" class="chg-row"':'')+'>'; let ci=0;
+  for(const c of tr.children){
+    if(!isCell(c)) continue;
+    const tg=c.tagName==='TH'?'th':'td', k=ri*10000+ci;
+    const st=rowStyle||hl.cells.get(k)||'', cc=hl.cellCls.get(k)||(st?'chg-cell':'');
+    h+='<'+tg+cellAttrs(c,st,cc)+'>'+inlineHtml(c)+'</'+tg+'>'; ci++;
+  }
+  return h+'</tr>';
+}
+function alignedTables(tA, tB, RA, RB, pairsAll, hlL, hlR){
+  const gA=gridRows(tA), gB=gridRows(tB);
+  const hasBodyRowspan=g=>g.some(r=>!r.head && r.cells.some(c=>+(c.el.getAttribute('ROWSPAN')||1)>1));
+  if(hasBodyRowspan(gA)||hasBodyRowspan(gB)) return null;
+  const headA=[],bodyA=[],headB=[],bodyB=[];
+  gA.forEach((r,i)=>(r.head?headA:bodyA).push(i)); gB.forEach((r,i)=>(r.head?headB:bodyB).push(i));
+  const a2b=new Map(), b2a=new Map();
+  pairsAll.forEach(([ai,bi])=>{ a2b.set(RA[ai].ri,RB[bi].ri); b2a.set(RB[bi].ri,RA[ai].ri); });
+  // 금액 없는 제목 행(자산·유동자산 등)은 과목명이 같으면 짝
+  const recA=new Set(RA.map(r=>r.ri)), recB=new Set(RB.map(r=>r.ri));
+  const lab=(g,ri)=>(g[ri].cells[0]?g[ri].cells[0].text:'').replace(/[\s\u3000·ㆍ:]/g,'');
+  bodyA.filter(ri=>!recA.has(ri)).forEach(ra=>{
+    const la=lab(gA,ra); if(!la) return;
+    const rb=bodyB.find(x=>!recB.has(x)&&!b2a.has(x)&&lab(gB,x)===la);
+    if(rb!==undefined){ a2b.set(ra,rb); b2a.set(rb,ra); }
+  });
+  const slotOf=new Map();
+  const slots=bodyA.map((ra,i)=>{ slotOf.set(ra,i); return {a:ra, b:a2b.has(ra)?a2b.get(ra):null, extra:[]}; });
+  const pre=[]; let last=-1;
+  bodyB.forEach(rb=>{ if(b2a.has(rb)){ last=slotOf.get(b2a.get(rb)); return; } if(last<0) pre.push(rb); else slots[last].extra.push(rb); });
+  const seqA=[], seqB=[];
+  pre.forEach(rb=>{ seqA.push(null); seqB.push(rb); });
+  slots.forEach(s=>{ seqA.push(s.a); seqB.push(s.b); s.extra.forEach(rb=>{ seqA.push(null); seqB.push(rb); }); });
+  const id='al'+(alSeq++);
+  const H=Math.max(headA.length,headB.length);
+  const build=(tbl,g,head,seq,hl)=>{
+    const trs=directRows(tbl);
+    const cg=tbl.getElementsByTagName('COLGROUP')[0];
+    const ncol=cg?cg.getElementsByTagName('COL').length:Math.max(1,...g.map(r=>r.cells.length));
+    const w=tbl.getAttribute('WIDTH'), border=tbl.getAttribute('BORDER')||'1';
+    let h='<table border="'+border+'" data-al="'+id+'"'+(border==='0'?' class="nb"':'')+(w?' style="width:'+w+'px"':'')+'>';
+    if(cg){ h+='<colgroup>'; for(const col of cg.getElementsByTagName('COL')) h+='<col style="width:'+(col.getAttribute('WIDTH')||'')+'px">'; h+='</colgroup>'; }
+    const pad='<tr class="pad"><td colspan="'+ncol+'"></td></tr>';
+    h+='<thead>'+head.map(ri=>rowHtml(trs[ri],ri,hl)).join('')+pad.repeat(H-head.length)+'</thead><tbody>';
+    h+=seq.map(ri=>ri===null?pad:rowHtml(trs[ri],ri,hl)).join('')+'</tbody></table>';
+    return h;
+  };
+  return [build(tA,gA,headA,seqA,hlL), build(tB,gB,headB,seqB,hlR)];
+}
+/* ===================== 5. 비교 결과 조립 (뷰 = 좌우 화면 1개) ===================== */
 function fmtDate(ms){ const d=new Date(ms); return d.getFullYear()+'.'+String(d.getMonth()+1).padStart(2,'0')+'.'+String(d.getDate()).padStart(2,'0'); }
 function trunc(s,n){ s=(s||'').replace(/\s+/g,' ').trim(); return s.length>n? s.slice(0,n-1)+'…' : s; }
 
-function buildResult(blocksA, blocksB, meta, opts, onProgress){
-  const prog = p=>{ if(onProgress) onProgress(p); };
-  if(opts.attachOnly){
-    const cut=(bs)=>{ const idx=bs.findIndex(b=>b.type==='title'&&/첨부/.test(b.text)); return idx>=0?bs.slice(idx):bs; };
-    blocksA=cut(blocksA); blocksB=cut(blocksB);
-  }
-  prog(45);
+function newCtx(vid){ return {vid, L:'', R:'', summary:[], chapters:[], stat:{chg:0,del:0,add:0,same:0,fmt:0,nm:0}, pid:0, blk:0, ch:0}; }
+function addChapter(ctx, textL, textR, cls, pair){
+  const id=ctx.vid+'ch'+(ctx.ch++);
+  ctx.chapters.push({id, title:textR||textL});
+  const pa = pair!==undefined ? ' data-pair="'+pair+'"' : '';
+  const pL = textL ? '<p'+pa+(pair!==undefined?' class="chg-para"':'')+'>'+esc(textL)+'</p>' : '';
+  const pR = textR ? '<p'+pa+(pair!==undefined?' class="chg-para"':'')+'>'+esc(textR)+'</p>' : '';
+  ctx.L+='<div class="blk chapter-title '+(cls||'same')+(textL?'':' empty')+'" id="'+id+'">'+pL+'</div>';
+  ctx.R+='<div class="blk chapter-title '+(cls||'same')+(textR?'':' empty')+'">'+pR+'</div>';
+}
+
+/* 블록 목록 비교 → ctx 에 좌우 HTML 누적 */
+function diffBlocks(ctx, blocksA, blocksB, opts, prog){
   const ops=seqDiff(blocksA,blocksB,b=>b.key,b=>b.key);
   const items=pairOps(ops,blocksA,blocksB);
-  prog(60);
-
-  let L='', R='';
-  const chapters=[]; const summary=[];
-  const stat={changed:0,del:0,add:0,same:0};
-  let pid=0, chIdx=0, blk=0;
   const total=items.length;
   for(let n=0;n<items.length;n++){
     const it=items[n];
-    if(n%50===0) prog(60+Math.round(25*n/Math.max(1,total)));
-    const ch = (it.L&&it.L.chapter)||(it.R&&it.R.chapter);
-    if(ch){
-      const id='ch'+(chIdx++);
-      chapters.push({id, title:ch});
-      L+='<div class="blk same chapter-title" id="'+id+'"><p>'+esc(ch)+'</p></div>';
-      R+='<div class="blk same chapter-title"><p>'+esc(ch)+'</p></div>';
+    if(prog && n%60===0) prog(n/Math.max(1,total));
+    const bid=ctx.vid+'b'+(ctx.blk++);
+    const sumStart=ctx.summary.length;
+    /* 주석 제목 (보고서 모드) */
+    const ntL=it.L&&it.L.type==='nt', ntR=it.R&&it.R.type==='nt';
+    if(ntL||ntR){
+      if(it.kind==='same' || it.kind==='changed'){
+        if(norm(it.L.text).replace(/\s/g,'')===norm(it.R.text).replace(/\s/g,'')) addChapter(ctx,it.L.text,it.R.text,'same');
+        else { addChapter(ctx,it.L.text,it.R.text,'diff k-nm'); ctx.summary.push({kind:'nm', L:it.L.text, R:it.R.text, bid:null}); ctx.stat.nm++; }
+      }else if(it.kind==='del'){ addChapter(ctx,it.L.text,'','diff k-del',ctx.pid++); ctx.summary.push({kind:'del', L:'[주석 제목] '+it.L.text, R:'', bid}); ctx.stat.del++; }
+      else { addChapter(ctx,'',it.R.text,'diff k-add',ctx.pid++); ctx.summary.push({kind:'add', L:'', R:'[주석 제목] '+it.R.text, bid}); ctx.stat.add++; }
+      continue;
     }
-    const bid='b'+(blk++);
+    if(!opts.report){
+      const ch = (it.L&&it.L.chapter)||(it.R&&it.R.chapter);
+      if(ch) addChapter(ctx,ch,ch,'same');
+    }
     if(it.kind==='same'){
       const hA=renderBlock(it.L), hB=renderBlock(it.R);
-      if(hA===hB){
-        stat.same++;
-        L+='<div class="blk same" data-b="'+bid+'">'+hA+'</div>';
-        R+='<div class="blk same" data-b="'+bid+'">'+hB+'</div>';
+      if(hA===hB || opts.report){
+        ctx.stat.same++;
+        ctx.L+='<div class="blk same" data-b="'+bid+'">'+hA+'</div>';
+        ctx.R+='<div class="blk same" data-b="'+bid+'">'+hB+'</div>';
         continue;
       }
-      // 텍스트는 같고 서식(글자색·굵기·크기·정렬 등)만 다른 블록
-      stat.changed++;
+      // 텍스트는 같고 서식만 다른 블록 (DSD↔DSD 모드)
+      ctx.stat.fmt++;
       let fl, fr;
       if(it.L.type==='table'){
         const rowsA=hA.match(/<tr[\s\S]*?<\/tr>/g)||[], rowsB=hB.match(/<tr[\s\S]*?<\/tr>/g)||[];
         const rpL=new Map(), rpR=new Map();
-        for(let r=0;r<Math.max(rowsA.length,rowsB.length);r++) if(rowsA[r]!==rowsB[r]){ rpL.set(r,pid); rpR.set(r,pid); pid++; }
+        for(let r=0;r<Math.max(rowsA.length,rowsB.length);r++) if(rowsA[r]!==rowsB[r]){ rpL.set(r,ctx.pid); rpR.set(r,ctx.pid); ctx.pid++; }
         fl=renderTable(it.L.el,{rows:new Map(),cells:new Map(),rowPair:rpL}); fr=renderTable(it.R.el,{rows:new Map(),cells:new Map(),rowPair:rpR});
       }else{
-        fl=renderBlock(it.L,null,'chg-para',pid); fr=renderBlock(it.R,null,'chg-para',pid); pid++;
+        fl=renderBlock(it.L,null,'chg-para',ctx.pid); fr=renderBlock(it.R,null,'chg-para',ctx.pid); ctx.pid++;
       }
-      summary.push({kind:'fmt', L:it.L.text, R:it.R.text, bid});
-      L+='<div class="blk diff k-fmt" data-b="'+bid+'">'+fl+'</div>';
-      R+='<div class="blk diff k-fmt" data-b="'+bid+'">'+fr+'</div>';
+      ctx.summary.push({kind:'fmt', L:it.L.text, R:it.R.text, bid});
+      ctx.L+='<div class="blk diff k-fmt" data-b="'+bid+'">'+fl+'</div>';
+      ctx.R+='<div class="blk diff k-fmt" data-b="'+bid+'">'+fr+'</div>';
       continue;
     }
     // 빈 문단·페이지나누기만 추가/삭제된 경우: 차이로 세지 않고 자리만 맞춤
     if(it.kind!=='changed'){
       const b=it.L||it.R;
-      if(b.type==='pgbrk' || (b.type==='p' && !b.text)){
-        const h=renderBlock(b);
-        L+='<div class="blk same" data-b="'+bid+'">'+(it.L?h:'')+'</div>';
-        R+='<div class="blk same" data-b="'+bid+'">'+(it.R?h:'')+'</div>';
+      if(b.type==='pgbrk' || (b.type==='p' && !b.text) || b.type==='sec'){
+        const h=b.type==='sec'?'':renderBlock(b);
+        ctx.L+='<div class="blk same" data-b="'+bid+'">'+(it.L?h:'')+'</div>';
+        ctx.R+='<div class="blk same" data-b="'+bid+'">'+(it.R?h:'')+'</div>';
         continue;
       }
     }
     let hl='', hr='', kindCls='';
-    const sumStart=summary.length;
     if(it.kind==='changed'){
-      stat.changed++; kindCls='k-chg';
-      if(it.L.type==='table'){ let np; [hl,hr,np]=tableDiff(it.L,it.R,pid,summary); pid=np; }
-      else { [hl,hr]=charDiff(it.L,it.R,pid); summary.push({kind:'chg', L:it.L.text, R:it.R.text}); pid++; }
+      ctx.stat.chg++; kindCls='k-chg';
+      if(it.L.type==='table'){ let np; [hl,hr,np]=tableDiff(it.L,it.R,ctx.pid,ctx.summary); ctx.pid=np; }
+      else { [hl,hr]=charDiff(it.L,it.R,ctx.pid); ctx.summary.push({kind:'chg', L:it.L.text, R:it.R.text}); ctx.pid++; }
     }else if(it.kind==='del'){
-      stat.del++; kindCls='k-del';
-      if(it.L.type==='table'){ const rp=new Map(); const rows=new Map(); it.L.rows.forEach((r,i)=>{rows.set(i,HL_DEL); rp.set(i,pid);}); hl=renderTable(it.L.el,{rows,cells:new Map(),rowPair:rp}); summary.push({kind:'del', L:'[표] '+it.L.text, R:''}); }
-      else { hl=renderBlock(it.L,null,'chg-para c-del',pid); summary.push({kind:'del', L:it.L.text, R:''}); }
-      pid++;
+      ctx.stat.del++; kindCls='k-del';
+      if(it.L.type==='table'){ const rp=new Map(), rows=new Map(); it.L.rows.forEach((r,i)=>{rows.set(i,HL_DEL); rp.set(i,ctx.pid);}); hl=renderTable(it.L.el,{rows,cells:new Map(),rowPair:rp}); ctx.summary.push({kind:'del', L:'[표] '+it.L.text, R:''}); }
+      else { hl=renderBlock(it.L,null,'chg-para c-del',ctx.pid); ctx.summary.push({kind:'del', L:it.L.text, R:''}); }
+      ctx.pid++;
     }else{
-      stat.add++; kindCls='k-add';
-      if(it.R.type==='table'){ const rp=new Map(); const rows=new Map(); it.R.rows.forEach((r,i)=>{rows.set(i,HL_ADD); rp.set(i,pid);}); hr=renderTable(it.R.el,{rows,cells:new Map(),rowPair:rp}); summary.push({kind:'add', L:'', R:'[표] '+it.R.text}); }
-      else { hr=renderBlock(it.R,null,'chg-para c-add',pid); summary.push({kind:'add', L:'', R:it.R.text}); }
-      pid++;
+      ctx.stat.add++; kindCls='k-add';
+      if(it.R.type==='table'){ const rp=new Map(), rows=new Map(); it.R.rows.forEach((r,i)=>{rows.set(i,HL_ADD); rp.set(i,ctx.pid);}); hr=renderTable(it.R.el,{rows,cells:new Map(),rowPair:rp}); ctx.summary.push({kind:'add', L:'', R:'[표] '+it.R.text}); }
+      else { hr=renderBlock(it.R,null,'chg-para c-add',ctx.pid); ctx.summary.push({kind:'add', L:'', R:it.R.text}); }
+      ctx.pid++;
     }
-    // 요약행 → 블록 매핑
-    for(let s=sumStart;s<summary.length;s++) summary[s].bid=bid;
-    L+='<div class="blk diff '+kindCls+(hl?'':' empty')+'" data-b="'+bid+'">'+hl+'</div>';
-    R+='<div class="blk diff '+kindCls+(hr?'':' empty')+'" data-b="'+bid+'">'+hr+'</div>';
+    for(let s=sumStart;s<ctx.summary.length;s++) ctx.summary[s].bid=bid;
+    ctx.L+='<div class="blk diff '+kindCls+(hl?'':' empty')+'" data-b="'+bid+'">'+hl+'</div>';
+    ctx.R+='<div class="blk diff '+kindCls+(hr?'':' empty')+'" data-b="'+bid+'">'+hr+'</div>';
   }
-  prog(88);
+}
 
-  const kindLabel={chg:'변경',del:'삭제',add:'추가',fmt:'서식'};
-  const sumRows = summary.map(s=>'<tr data-b="'+s.bid+'"><td class="k '+s.kind+'">'+kindLabel[s.kind]+'</td><td>'+esc(trunc(s.L,90))+'</td><td>'+esc(trunc(s.R,90))+'</td></tr>').join('');
-  const chapterOpts = chapters.map(c=>'<option value="'+c.id+'">'+esc(c.title)+'</option>').join('');
-  const stamp=fmtDate(Date.now());
+/* 재무제표 본문 (보고서 모드) */
+const STMT_LABEL={BS:'재무상태표',IS:'손익계산서',CI:'포괄손익계산서',SCE:'자본변동표',CF:'현금흐름표'};
+function diffStatements(ctx, stA, stB, prefix){
+  for(const k of STMT_ORDER){
+    const a=stA.find(s=>s.kind===k), b=stB.find(s=>s.kind===k);
+    if(!a && !b) continue;
+    addChapter(ctx, a?prefix+STMT_LABEL[k]:'', b?prefix+STMT_LABEL[k]:'', 'same');
+    const bid=ctx.vid+'b'+(ctx.blk++); const sumStart=ctx.summary.length;
+    let hl='', hr='', cls='same';
+    if(a&&b){
+      let cnt; [hl,hr,ctx.pid,cnt]=fsDiff(a.body,b.body,ctx.pid,ctx.summary);
+      ctx.stat.chg+=cnt.chg; ctx.stat.add+=cnt.add; ctx.stat.del+=cnt.del; ctx.stat.nm+=cnt.nm;
+      cls = (cnt.chg||cnt.add||cnt.del) ? 'diff k-chg' : 'same';
+      if(cls==='same') ctx.stat.same++;
+    }else if(a){
+      const rp=new Map(), rows=new Map(); a.body.rows.forEach((r,i)=>{rows.set(i,HL_DEL); rp.set(i,ctx.pid);}); ctx.pid++;
+      hl=renderTable(a.body.el,{rows,cells:new Map(),rowPair:rp}); cls='diff k-del'; ctx.stat.del++;
+      ctx.summary.push({kind:'del', L:'[재무제표] '+prefix+STMT_LABEL[k], R:''});
+    }else{
+      const rp=new Map(), rows=new Map(); b.body.rows.forEach((r,i)=>{rows.set(i,HL_ADD); rp.set(i,ctx.pid);}); ctx.pid++;
+      hr=renderTable(b.body.el,{rows,cells:new Map(),rowPair:rp}); cls='diff k-add'; ctx.stat.add++;
+      ctx.summary.push({kind:'add', L:'', R:'[재무제표] '+prefix+STMT_LABEL[k]});
+    }
+    for(let s=sumStart;s<ctx.summary.length;s++) ctx.summary[s].bid=bid;
+    ctx.L+='<div class="blk '+cls+(hl?'':' empty')+'" data-b="'+bid+'">'+hl+'</div>';
+    ctx.R+='<div class="blk '+cls+(hr?'':' empty')+'" data-b="'+bid+'">'+hr+'</div>';
+  }
+}
 
+const KIND_LABEL={chg:'변경',del:'삭제',add:'추가',fmt:'서식',nm:'명칭'};
+function viewHtml(ctx, meta){
+  const S=ctx.summary;
+  const counts={}; S.forEach(s=>counts[s.kind]=(counts[s.kind]||0)+1);
+  const realN=S.filter(s=>s.kind!=='nm').length;
+  const sumRows=S.map(s=>'<tr class="r-'+s.kind+'"'+(s.bid?' data-b="'+s.bid+'"':'')+'><td class="k '+s.kind+'">'+KIND_LABEL[s.kind]+'</td><td>'+esc(trunc(s.L,90))+'</td><td>'+esc(trunc(s.R,90))+'</td></tr>').join('');
+  const chips=['chg','add','del',meta.extraKind].filter(k=>counts[k]).map(k=>'<button class="chip" data-k="'+k+'"><i class="'+k+'"></i>'+KIND_LABEL[k]+' '+counts[k]+'</button>').join('');
+  const chapterOpts=ctx.chapters.map(c=>'<option value="'+c.id+'">'+esc(c.title)+'</option>').join('');
+  const legend='<i style="background:#FFEB9C"></i>변경 <i style="background:#C6EFCE"></i>추가 <i style="background:#FFC7CE"></i>삭제 <i style="background:#DDEBF7"></i>'+(meta.extraKind==='nm'?'명칭만':'서식만');
+  return `<section class="view" id="${ctx.vid}">
+<div class="hdr">
+  <div class="hc"><div class="fname">${esc(meta.nameA)}</div><div class="fdesc">${esc(meta.descA)}</div></div>
+  <div class="hc"><div class="fname">${esc(meta.nameB)}</div><div class="fdesc">${esc(meta.descB)}</div></div>
+  <div class="hpad"></div>
+</div>
+<div class="tb">
+  <span class="lbl">이동</span>
+  <button class="prev" title="이전 변경 (↑ / k)">◀ 이전 변경</button>
+  <button class="next" title="다음 변경 (↓ / j)">다음 변경 ▶</button>
+  <span class="pos"></span>
+  <select class="chap" title="챕터로 이동"><option value="">챕터 이동…</option>${chapterOpts}</select>
+  <span class="legend">${legend}<span class="ver">DSD 비교 ${APP_VERSION} · ${fmtDate(Date.now())}</span></span>
+</div>
+<div class="panes">
+  <div class="pane l">${ctx.L}</div>
+  <div class="sep"></div>
+  <div class="pane r">${ctx.R}</div>
+  <div class="bar"></div>
+  <div class="ov"></div>
+</div>
+<div class="sum">
+  <h2>변경 사항 요약 (${realN}건)${counts[meta.extraKind]&&meta.extraKind==='nm'?' <span class="sub">· 명칭 차이 '+counts.nm+'건 별도</span>':''}</h2>
+  <div class="chips"><button class="chip on" data-k="">전체 ${S.length}</button>${chips}</div>
+  <table><thead><tr><th>구분</th><th>${esc(meta.colA||'이전')}</th><th>${esc(meta.colB||'이후')}</th></tr></thead><tbody class="sumBody">${sumRows||'<tr><td colspan="3" style="text-align:center;color:#595959">차이가 없습니다.</td></tr>'}</tbody></table>
+</div>
+</section>`;
+}
+
+/* 결과 페이지: views = [{tab, html, badge}] */
+function pageHtml(title, views){
+  const tabs = views.length>1 ? '<nav class="tabs">'+views.map((v,i)=>'<button class="tab'+(i?'':' on')+'" data-v="'+i+'">'+esc(v.tab)+' <span class="badge">'+esc(v.badge)+'</span></button>').join('')+'</nav>' : '';
   return `<!DOCTYPE html>
-<html lang="ko"><head><meta charset="utf-8"><title>비교_${esc(meta.nameA)}_vs_${esc(meta.nameB)}</title>
+<html lang="ko"><head><meta charset="utf-8"><title>${esc(title)}</title>
 <style>
 *{box-sizing:border-box}
 html,body{margin:0;background:#fff;color:#000}
 body{font-family:"Malgun Gothic","맑은 고딕",-apple-system,"Apple SD Gothic Neo",sans-serif}
-/* 머리글 */
+.tabs{display:flex;gap:2px;padding:6px 12px 0;background:#FFFFFF;border-bottom:1px solid #A6A6A6}
+.tab{font:inherit;font-size:13px;font-weight:bold;color:#595959;background:#F2F2F2;border:1px solid #A6A6A6;border-bottom:none;border-radius:6px 6px 0 0;padding:6px 16px;cursor:pointer;margin-bottom:-1px}
+.tab.on{background:#fff;color:#140BE3;border-bottom:1px solid #fff}
+.tab .badge{font-weight:normal;font-size:11.5px;color:#595959;margin-left:4px}
+.view{display:none}.view.on{display:block}
 .hdr{display:flex;border-bottom:1px solid #A6A6A6}
 .hdr .hc{flex:1;padding:8px 12px;min-width:0}
 .hdr .hc+.hc{border-left:1px solid #A6A6A6}
 .hdr .fname{font-weight:bold;font-size:13.5px;color:#140BE3;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .hdr .fdesc{font-size:12px;color:#595959;margin-top:2px}
 .hdr .hpad{width:10px}
-/* 이동 도구줄 */
 .tb{display:flex;align-items:center;gap:6px;background:#F2F2F2;border-bottom:1px solid #A6A6A6;font-size:12px;padding:6px 12px}
 .tb .lbl{font-weight:bold;color:#595959}
 .tb button{font:inherit;font-size:12px;background:#fff;border:1px solid #A6A6A6;border-radius:4px;padding:3px 10px;cursor:pointer}
@@ -612,7 +1047,6 @@ body{font-family:"Malgun Gothic","맑은 고딕",-apple-system,"Apple SD Gothic 
 .tb .legend{margin-left:auto;display:flex;align-items:center;gap:6px}
 .tb .legend i{display:inline-block;width:12px;height:12px;border:1px solid #A6A6A6;vertical-align:middle}
 .tb .ver{color:#8c8c8c;margin-left:12px}
-/* 본문 */
 .panes{position:relative;display:flex;height:calc(100vh - 92px);min-height:360px;border-bottom:1px solid #A6A6A6}
 .pane{flex:1;overflow:auto;min-width:0;position:relative}
 .sep{width:1px;background:#A6A6A6;flex:none}
@@ -620,14 +1054,14 @@ body{font-family:"Malgun Gothic","맑은 고딕",-apple-system,"Apple SD Gothic 
 .bar div{width:100%}
 .ov{position:absolute;left:0;top:0;bottom:0;right:10px;overflow:hidden;pointer-events:none;z-index:5}
 .ov .box{position:absolute;left:0;border:2px solid #800020}
-/* 블록 */
 .blk{padding:4px 10px;--blockbg:#fff;background:var(--blockbg)}
 .blk.same{--blockbg:#F2F2F2}
-.blk.diff.empty{--blockbg:#FFFFFF}
-.blk.diff.k-fmt{--blockbg:#DDEBF7}
+.blk.diff.empty,.blk.empty{--blockbg:#FFFFFF}
+.blk.diff.k-fmt,.blk.diff.k-nm{--blockbg:#DDEBF7}
 .blk.k-fmt table{background:#DDEBF7}
 .blk.chapter-title{padding:10px}
-.chapter-title>p{font-size:14pt;font-weight:bold;color:royalblue}
+.chapter-title>p{font-size:14pt;font-weight:bold;color:royalblue;max-width:none}
+.chapter-title.k-del>p{background:#FFC7CE;display:inline-block}.chapter-title.k-add>p{background:#C6EFCE;display:inline-block}
 p{font-size:12pt;line-height:1.6em;font-family:"바탕",Batang,serif;margin:0;max-width:600px;min-height:16px}
 .title{font-weight:bold;font-size:20px;color:#0000ff;margin:4px 0}
 .cover-title{font-weight:bold;font-size:24pt;text-align:center;font-family:"바탕",Batang,serif;margin:8px 0}
@@ -638,251 +1072,397 @@ thead>tr>td,th{font-size:11pt;line-height:1.6em;font-weight:normal;background-co
 td{font-size:11pt;line-height:1.6em;border-color:gray;padding:4px 4px 2px 4px}
 table[border="1"] td,table[border="1"] th{border:1px solid gray}
 .pgbrk{border-top:1px dashed #c0c4c9;max-width:none;min-height:4px;margin:4px 0}
-/* 고정 열 */
 table.wide td:first-child,table.wide th:first-child{position:sticky;left:0;z-index:2;background:var(--blockbg);border-right:2px solid #A6A6A6}
 table.wide thead th:first-child,table.wide thead td:first-child{background:#dcdcdc}
-/* 글자 diff */
+table.wide td.nm-cell:first-child{background:#DDEBF7}
+tr.pad td{background:#FFFFFF;border-left-color:#d9d9d9;border-right-color:#d9d9d9}
+thead tr.pad td{background:#dcdcdc}
 .c-chg{background:#FFEB9C}.c-del{background:#FFC7CE}.c-add{background:#C6EFCE}
 .chg-cell .c-chg{background:#FFD966}.chg-cell .c-del{background:#FFC7CE}.chg-cell .c-add{background:#C6EFCE}
 .c-ws{opacity:.75;font-weight:normal}
 p.c-del,p.c-add,div.c-del,div.c-add{display:inline-block;max-width:600px}
-/* 플래시 */
 @keyframes flash{0%{box-shadow:inset 0 0 0 3px #140BE3}100%{box-shadow:inset 0 0 0 3px rgba(20,11,227,0)}}
 .flash{animation:flash 1.6s ease-out forwards}
-/* 요약 */
 .sum{padding:16px 20px 28px}
 .sum h2{font-size:13.5px;font-weight:bold;color:#140BE3;margin:0 0 8px}
+.sum h2 .sub{font-size:12px;font-weight:normal;color:#595959}
+.chips{display:flex;gap:6px;margin:0 0 8px;flex-wrap:wrap}
+.chip{font:inherit;font-size:12px;background:#fff;border:1px solid #A6A6A6;border-radius:12px;padding:2px 10px;cursor:pointer;color:#262626}
+.chip.on{background:#262626;color:#fff;border-color:#262626}
+.chip i{display:inline-block;width:10px;height:10px;border:1px solid #A6A6A6;margin-right:4px;vertical-align:-1px}
+.chip i.chg{background:#FFEB9C}.chip i.add{background:#C6EFCE}.chip i.del{background:#FFC7CE}.chip i.fmt,.chip i.nm{background:#DDEBF7}
 .sum table{table-layout:auto;width:100%;font-family:"Malgun Gothic","맑은 고딕",sans-serif;font-size:12px;color:#262626;border:1px solid #A6A6A6;background:#fff}
 .sum th{background:#DEDEDE;font-weight:bold;text-align:center;border:1px solid #A6A6A6;padding:4px 8px;font-size:12px;line-height:1.5}
 .sum td{border:1px solid #A6A6A6;padding:4px 8px;font-size:12px;line-height:1.5;word-break:break-all;vertical-align:top}
 .sum td.k{text-align:center;white-space:nowrap;width:60px}
-.sum td.k.chg{background:#FFEB9C}.sum td.k.add{background:#C6EFCE}.sum td.k.del{background:#FFC7CE}.sum td.k.fmt{background:#DDEBF7}
+.sum td.k.chg{background:#FFEB9C}.sum td.k.add{background:#C6EFCE}.sum td.k.del{background:#FFC7CE}.sum td.k.fmt,.sum td.k.nm{background:#DDEBF7}
 .sum tbody tr{cursor:pointer}.sum tbody tr:hover td:not(.k){background:#F7F7F7}
 </style></head>
 <body>
-<div class="hdr">
-  <div class="hc"><div class="fname">${esc(meta.nameA)}</div><div class="fdesc">${esc(meta.descA)}</div></div>
-  <div class="hc"><div class="fname">${esc(meta.nameB)}</div><div class="fdesc">${esc(meta.descB)}</div></div>
-  <div class="hpad"></div>
-</div>
-<div class="tb">
-  <span class="lbl">이동</span>
-  <button id="prev" title="이전 변경 (↑ / k)">◀ 이전 변경</button>
-  <button id="next" title="다음 변경 (↓ / j)">다음 변경 ▶</button>
-  <span class="pos" id="pos"></span>
-  <select id="chap" title="챕터로 이동"><option value="">챕터 이동…</option>${chapterOpts}</select>
-  <span class="legend"><i style="background:#FFEB9C"></i>변경 <i style="background:#C6EFCE"></i>추가 <i style="background:#FFC7CE"></i>삭제 <i style="background:#DDEBF7"></i>서식만<span class="ver">DSD 비교 ${APP_VERSION} · ${stamp}</span></span>
-</div>
-<div class="panes" id="panes">
-  <div class="pane" id="L">${L}</div>
-  <div class="sep"></div>
-  <div class="pane" id="R">${R}</div>
-  <div class="bar" id="bar"></div>
-  <div class="ov" id="ov"></div>
-</div>
-<div class="sum">
-  <h2>변경 사항 요약 (${summary.length}건)</h2>
-  <table><thead><tr><th>구분</th><th>이전</th><th>이후</th></tr></thead><tbody id="sumBody">${sumRows||'<tr><td colspan="3" style="text-align:center;color:#595959">차이가 없습니다.</td></tr>'}</tbody></table>
-</div>
+${tabs}
+${views.map(v=>v.html).join('\n')}
 <script>
 (function(){
-  var L=document.getElementById('L'), R=document.getElementById('R'), bar=document.getElementById('bar'), ov=document.getElementById('ov');
-  var lc=Array.prototype.slice.call(L.children), rc=Array.prototype.slice.call(R.children);
-  var syncing=false;
-  function sync(src,dst){ return function(){ if(syncing) return; syncing=true; dst.scrollTop=src.scrollTop; dst.scrollLeft=src.scrollLeft; syncing=false; drawBoxes(); }; }
-  L.addEventListener('scroll',sync(L,R)); R.addEventListener('scroll',sync(R,L));
-
-  /* 넓은 표 → 첫 열 고정 */
-  function markWide(){
-    var pw=L.clientWidth-20;
-    [L,R].forEach(function(p){ Array.prototype.forEach.call(p.querySelectorAll('table'),function(t){ t.classList.toggle('wide', t.offsetWidth>pw); }); });
-  }
-  /* 높이 맞춤 + 색 막대 */
-  function layout(){
-    var panes=document.getElementById('panes');
-    panes.style.height=Math.max(360, window.innerHeight-panes.getBoundingClientRect().top-window.scrollY)+'px';
-    markWide();
-    var heights=[], total=0;
-    for(var i=0;i<Math.min(lc.length,rc.length);i++){
-      lc[i].style.height=''; rc[i].style.height='';
-      var h=Math.max(lc[i].offsetHeight,rc[i].offsetHeight);
-      lc[i].style.height=h+'px'; rc[i].style.height=h+'px';
-      heights.push(h); total+=h;
+  function initView(root){
+    var L=root.querySelector('.pane.l'), R=root.querySelector('.pane.r'), bar=root.querySelector('.bar'), ov=root.querySelector('.ov'), panes=root.querySelector('.panes'), pos=root.querySelector('.pos');
+    var lc=Array.prototype.slice.call(L.children), rc=Array.prototype.slice.call(R.children);
+    var syncing=false;
+    function sync(src,dst){ return function(){ if(syncing) return; syncing=true; dst.scrollTop=src.scrollTop; dst.scrollLeft=src.scrollLeft; syncing=false; drawBoxes(); }; }
+    L.addEventListener('scroll',sync(L,R)); R.addEventListener('scroll',sync(R,L));
+    function markWide(){
+      var pw=L.clientWidth-20;
+      [L,R].forEach(function(p){ Array.prototype.forEach.call(p.querySelectorAll('table'),function(t){ t.classList.toggle('wide', t.offsetWidth>pw); }); });
     }
-    bar.innerHTML='';
-    var bh=bar.clientHeight;
-    for(var j=0;j<heights.length;j++){
-      var seg=document.createElement('div');
-      var l=lc[j], r=rc[j], c='#F2F2F2';
-      if(l.classList.contains('k-fmt')) c='#DDEBF7';
-      else if(l.classList.contains('diff')){
-        var le=l.classList.contains('empty'), re=r.classList.contains('empty');
-        c = (!le&&!re)?'#FFEB9C':(re?'#FFC7CE':'#C6EFCE');
+    /* 재무제표 정렬표: 좌우 같은 줄 높이 맞춤 */
+    function alignRows(){
+      var tl=L.querySelectorAll('table[data-al]'), jobs=[];
+      Array.prototype.forEach.call(tl,function(t){ var o=R.querySelector('table[data-al="'+t.getAttribute('data-al')+'"]'); if(!o) return;
+        var a=t.rows, b=o.rows, n=Math.min(a.length,b.length);
+        for(var i=0;i<n;i++){ a[i].style.height=''; b[i].style.height=''; }
+        jobs.push([a,b,n]); });
+      var hs=jobs.map(function(j){ var r=[]; for(var i=0;i<j[2];i++) r.push(Math.max(j[0][i].offsetHeight,j[1][i].offsetHeight)); return r; });
+      jobs.forEach(function(j,k){ for(var i=0;i<j[2];i++){ j[0][i].style.height=hs[k][i]+'px'; j[1][i].style.height=hs[k][i]+'px'; } });
+    }
+    function layout(){
+      panes.style.height=Math.max(360, window.innerHeight-panes.getBoundingClientRect().top-window.scrollY)+'px';
+      markWide();
+      alignRows();
+      var heights=[], total=0;
+      for(var i=0;i<Math.min(lc.length,rc.length);i++){
+        lc[i].style.height=''; rc[i].style.height='';
+        var h=Math.max(lc[i].offsetHeight,rc[i].offsetHeight);
+        lc[i].style.height=h+'px'; rc[i].style.height=h+'px';
+        heights.push(h); total+=h;
       }
-      seg.style.background=c; seg.style.height=(total?heights[j]/total*bh:0)+'px'; seg.dataset.i=j;
-      bar.appendChild(seg);
+      bar.innerHTML='';
+      var bh=bar.clientHeight;
+      for(var j=0;j<heights.length;j++){
+        var seg=document.createElement('div');
+        var l=lc[j], r=rc[j], c='#F2F2F2';
+        if(l.classList.contains('k-fmt')||l.classList.contains('k-nm')) c='#DDEBF7';
+        else if(l.classList.contains('diff')){
+          var le=l.classList.contains('empty'), re=r.classList.contains('empty');
+          c = (!le&&!re)?'#FFEB9C':(re?'#FFC7CE':'#C6EFCE');
+        }
+        seg.style.background=c; seg.style.height=(total?heights[j]/total*bh:0)+'px'; seg.dataset.i=j;
+        bar.appendChild(seg);
+      }
+      buildBoxes(); drawBoxes();
     }
-    buildBoxes(); drawBoxes();
-  }
-  bar.addEventListener('click',function(e){ var i=e.target.dataset.i; if(i!==undefined){ scrollTo(lc[i].offsetTop-20, null); } });
-
-  /* 버건디 박스: data-pair 단위로 좌우 위치 합산, 맞닿은 것은 병합 */
-  var boxes=[];
-  function topIn(pane, el){ var r=el.getBoundingClientRect(), p=pane.getBoundingClientRect(); return r.top-p.top+pane.scrollTop; }
-  function buildBoxes(){
-    var map={}, order=[];
-    function add(pane, el){
-      var id=el.getAttribute('data-pair'); var t=topIn(pane,el), b=t+el.offsetHeight;
-      if(!map[id]){ map[id]={top:t,bottom:b,els:[],bid:(el.closest('.blk')||{}).getAttribute?el.closest('.blk').getAttribute('data-b'):null}; order.push(id); }
-      map[id].top=Math.min(map[id].top,t); map[id].bottom=Math.max(map[id].bottom,b); map[id].els.push(el);
+    bar.addEventListener('click',function(e){ var i=e.target.dataset.i; if(i!==undefined){ scrollTo(lc[i].offsetTop-20, null); } });
+    var boxes=[];
+    function topIn(pane, el){ var r=el.getBoundingClientRect(), p=pane.getBoundingClientRect(); return r.top-p.top+pane.scrollTop; }
+    function buildBoxes(){
+      var map={}, order=[];
+      function add(pane, el){
+        var id=el.getAttribute('data-pair'); var t=topIn(pane,el), b=t+el.offsetHeight;
+        var blk=el.closest('.blk');
+        if(!map[id]){ map[id]={top:t,bottom:b,els:[],bid:blk?blk.getAttribute('data-b'):null}; order.push(id); }
+        map[id].top=Math.min(map[id].top,t); map[id].bottom=Math.max(map[id].bottom,b); map[id].els.push(el);
+      }
+      Array.prototype.forEach.call(L.querySelectorAll('[data-pair]'),function(el){add(L,el);});
+      Array.prototype.forEach.call(R.querySelectorAll('[data-pair]'),function(el){add(R,el);});
+      var list=order.map(function(k){return map[k];}).sort(function(a,b){return a.top-b.top;});
+      boxes=[];
+      list.forEach(function(b){
+        var last=boxes[boxes.length-1];
+        if(last && b.top<=last.bottom+2){ last.bottom=Math.max(last.bottom,b.bottom); last.els=last.els.concat(b.els); last.bids.push(b.bid); }
+        else boxes.push({top:b.top,bottom:b.bottom,els:b.els.slice(),bids:[b.bid]});
+      });
+      ov.innerHTML='';
+      boxes.forEach(function(b){ var d=document.createElement('div'); d.className='box'; b.dom=d; ov.appendChild(d); });
+      pos.textContent = boxes.length? (cur>=0?(cur+1):0)+' / '+boxes.length : '변경 없음';
     }
-    Array.prototype.forEach.call(L.querySelectorAll('[data-pair]'),function(el){add(L,el);});
-    Array.prototype.forEach.call(R.querySelectorAll('[data-pair]'),function(el){add(R,el);});
-    var list=order.map(function(k){return map[k];}).sort(function(a,b){return a.top-b.top;});
-    boxes=[];
-    list.forEach(function(b){
-      var last=boxes[boxes.length-1];
-      if(last && b.top<=last.bottom+2){ last.bottom=Math.max(last.bottom,b.bottom); last.els=last.els.concat(b.els); last.bids.push(b.bid); }
-      else boxes.push({top:b.top,bottom:b.bottom,els:b.els.slice(),bids:[b.bid]});
+    function drawBoxes(){
+      var st=L.scrollTop, w=ov.clientWidth;
+      boxes.forEach(function(b){ b.dom.style.top=(b.top-st)+'px'; b.dom.style.height=(b.bottom-b.top)+'px'; b.dom.style.width=w+'px'; });
+    }
+    var cur=-1, lastProg=-1;
+    function scrollTo(top, left){
+      top=Math.max(0,top);
+      L.scrollTop=top; R.scrollTop=top;
+      if(left!==null && left!==undefined){ L.scrollLeft=left; R.scrollLeft=left; }
+      lastProg=L.scrollTop;
+    }
+    function tableLeftOf(cell){
+      var tbl=cell.closest('table'), pane=cell.closest('.pane');
+      var tr=tbl.querySelector('tr'); var first=tr?tr.children[0]:null;
+      var pr=pane.getBoundingClientRect();
+      var tl=tbl.getBoundingClientRect().left-pr.left+pane.scrollLeft;
+      var cl=cell.getBoundingClientRect().left-pr.left+pane.scrollLeft;
+      var fw=first?first.offsetWidth:0;
+      return Math.max(0, cl-(tl+fw)-2);
+    }
+    function go(i){
+      if(!boxes.length) return;
+      cur=(i+boxes.length)%boxes.length;
+      var b=boxes[cur];
+      var left=null, firstCell=null;
+      b.els.forEach(function(el){ if(firstCell) return; var c=el.querySelector('.chg-cell'); var t=el.closest('table'); if(c && t && t.classList.contains('wide')) firstCell=c; });
+      if(firstCell) left=tableLeftOf(firstCell);
+      scrollTo(b.top-40, left);
+      pos.textContent=(cur+1)+' / '+boxes.length;
+      var targets=[];
+      b.els.forEach(function(el){
+        if(el.classList.contains('chg-para')) targets.push(el);
+        else if(el.tagName==='TR'){ var cs=el.querySelectorAll('.chg-cell'); if(cs.length) Array.prototype.forEach.call(cs,function(c){targets.push(c);}); else Array.prototype.forEach.call(el.children,function(c){targets.push(c);}); }
+      });
+      targets.forEach(function(t){ t.classList.remove('flash'); void t.offsetWidth; t.classList.add('flash'); setTimeout(function(){t.classList.remove('flash');},1700); });
+    }
+    function userScrolled(){ return Math.abs(L.scrollTop-lastProg)>2; }
+    function next(){
+      if(!boxes.length) return;
+      if(userScrolled() || cur<0){ var st=L.scrollTop; for(var i=0;i<boxes.length;i++){ if(boxes[i].top-40>st+2){ go(i); return; } } go(0); }
+      else go(cur+1);
+    }
+    function prev(){
+      if(!boxes.length) return;
+      if(userScrolled() || cur<0){ var st=L.scrollTop; for(var i=boxes.length-1;i>=0;i--){ if(boxes[i].top-40<st-2){ go(i); return; } } go(boxes.length-1); }
+      else go(cur-1);
+    }
+    root.querySelector('.prev').onclick=prev;
+    root.querySelector('.next').onclick=next;
+    root.querySelector('.chap').onchange=function(){ var el=document.getElementById(this.value); if(el) scrollTo(el.offsetTop, null); this.value=''; };
+    var sumBody=root.querySelector('.sumBody');
+    sumBody.addEventListener('click',function(e){
+      var tr=e.target.closest('tr'); if(!tr) return; var bid=tr.getAttribute('data-b');
+      if(bid){ for(var i=0;i<boxes.length;i++){ if(boxes[i].bids.indexOf(bid)>=0){ window.scrollTo({top:0,behavior:'smooth'}); go(i); return; } } }
+      // 박스가 없는 행(명칭·서식): 해당 블록 위치로 스크롤
+      var blk=bid?L.querySelector('[data-b="'+bid+'"]'):null;
+      if(blk){ window.scrollTo({top:0,behavior:'smooth'}); scrollTo(blk.offsetTop-40,null); }
     });
-    ov.innerHTML='';
-    boxes.forEach(function(b){ var d=document.createElement('div'); d.className='box'; b.dom=d; ov.appendChild(d); });
-    document.getElementById('pos').textContent = boxes.length? '0 / '+boxes.length : '변경 없음';
-  }
-  function drawBoxes(){
-    var st=L.scrollTop, w=ov.clientWidth;
-    boxes.forEach(function(b){ b.dom.style.top=(b.top-st)+'px'; b.dom.style.height=(b.bottom-b.top)+'px'; b.dom.style.width=w+'px'; });
-  }
-
-  /* 이동 */
-  var cur=-1, lastProg=-1;
-  function scrollTo(top, left){
-    top=Math.max(0,top);
-    L.scrollTop=top; R.scrollTop=top;
-    if(left!==null && left!==undefined){ L.scrollLeft=left; R.scrollLeft=left; }
-    lastProg=L.scrollTop;
-  }
-  function tableLeftOf(cell){
-    var tbl=cell.closest('table'), pane=cell.closest('.pane');
-    var tr=tbl.querySelector('tr'); var first=tr?tr.children[0]:null;
-    var pr=pane.getBoundingClientRect();
-    var tl=tbl.getBoundingClientRect().left-pr.left+pane.scrollLeft;
-    var cl=cell.getBoundingClientRect().left-pr.left+pane.scrollLeft;
-    var fw=first?first.offsetWidth:0;
-    return Math.max(0, cl-(tl+fw)-2);
-  }
-  function go(i){
-    if(!boxes.length) return;
-    cur=(i+boxes.length)%boxes.length;
-    var b=boxes[cur];
-    var left=null, firstCell=null;
-    b.els.forEach(function(el){ if(firstCell) return; var c=el.querySelector('.chg-cell'); var t=el.closest('table'); if(c && t && t.classList.contains('wide')) firstCell=c; });
-    if(firstCell) left=tableLeftOf(firstCell);
-    scrollTo(b.top-40, left);
-    document.getElementById('pos').textContent=(cur+1)+' / '+boxes.length;
-    var targets=[];
-    b.els.forEach(function(el){
-      if(el.classList.contains('chg-para')) targets.push(el);
-      else if(el.tagName==='TR'){ var cs=el.querySelectorAll('.chg-cell'); if(cs.length) Array.prototype.forEach.call(cs,function(c){targets.push(c);}); else Array.prototype.forEach.call(el.children,function(c){targets.push(c);}); }
+    Array.prototype.forEach.call(root.querySelectorAll('.chip'),function(ch){
+      ch.onclick=function(){
+        Array.prototype.forEach.call(root.querySelectorAll('.chip'),function(x){x.classList.toggle('on',x===ch);});
+        var k=ch.getAttribute('data-k');
+        Array.prototype.forEach.call(sumBody.children,function(tr){ tr.style.display = (!k || tr.classList.contains('r-'+k)) ? '' : 'none'; });
+      };
     });
-    targets.forEach(function(t){ t.classList.remove('flash'); void t.offsetWidth; t.classList.add('flash'); setTimeout(function(){t.classList.remove('flash');},1700); });
+    var inited=false;
+    return {
+      show:function(){ var keep=cur; layout(); if(!inited){ inited=true; if(boxes.length) go(0); } else if(keep>=0) go(keep); },
+      relayout:function(){ if(!inited) return; var keep=cur; layout(); if(keep>=0) go(keep); },
+      next:next, prev:prev
+    };
   }
-  function userScrolled(){ return Math.abs(L.scrollTop-lastProg)>2; }
-  function next(){
-    if(!boxes.length) return;
-    if(userScrolled() || cur<0){ var st=L.scrollTop; for(var i=0;i<boxes.length;i++){ if(boxes[i].top-40>st+2){ go(i); return; } } go(0); }
-    else go(cur+1);
+  var roots=Array.prototype.slice.call(document.querySelectorAll('.view'));
+  var apis=roots.map(initView);
+  var active=0;
+  function activate(i){
+    active=i;
+    roots.forEach(function(r,k){ r.classList.toggle('on',k===i); });
+    Array.prototype.forEach.call(document.querySelectorAll('.tab'),function(t){ t.classList.toggle('on',+t.getAttribute('data-v')===i); });
+    apis[i].show();
   }
-  function prev(){
-    if(!boxes.length) return;
-    if(userScrolled() || cur<0){ var st=L.scrollTop; for(var i=boxes.length-1;i>=0;i--){ if(boxes[i].top-40<st-2){ go(i); return; } } go(boxes.length-1); }
-    else go(cur-1);
-  }
-  document.getElementById('prev').onclick=prev;
-  document.getElementById('next').onclick=next;
-  document.addEventListener('keydown',function(e){ if(e.target.tagName==='SELECT'||e.target.tagName==='INPUT') return; if(e.key==='ArrowDown'||e.key==='j'){next();e.preventDefault();} if(e.key==='ArrowUp'||e.key==='k'){prev();e.preventDefault();} });
-  document.getElementById('chap').onchange=function(){ var el=document.getElementById(this.value); if(el) scrollTo(el.offsetTop, null); this.value=''; };
-  /* 요약표 행 클릭 → 해당 블록이 속한 박스로 */
-  document.getElementById('sumBody').addEventListener('click',function(e){
-    var tr=e.target.closest('tr'); if(!tr) return; var bid=tr.getAttribute('data-b'); if(!bid) return;
-    for(var i=0;i<boxes.length;i++){ if(boxes[i].bids.indexOf(bid)>=0){ window.scrollTo({top:0,behavior:'smooth'}); go(i); return; } }
-  });
-
-  var rt; window.addEventListener('resize',function(){ clearTimeout(rt); rt=setTimeout(layout,150); });
-  layout();
-  if(boxes.length) go(0);
-  // 글꼴 로딩 후 높이가 달라질 수 있어 한 번 더
-  var relayout=function(){ var keep=cur; layout(); if(keep>=0) go(keep); };
-  if(document.fonts && document.fonts.ready) document.fonts.ready.then(relayout);
-  window.addEventListener('load',relayout);
+  Array.prototype.forEach.call(document.querySelectorAll('.tab'),function(t){ t.onclick=function(){ activate(+t.getAttribute('data-v')); }; });
+  document.addEventListener('keydown',function(e){ if(e.target.tagName==='SELECT'||e.target.tagName==='INPUT') return; if(e.key==='ArrowDown'||e.key==='j'){apis[active].next();e.preventDefault();} if(e.key==='ArrowUp'||e.key==='k'){apis[active].prev();e.preventDefault();} });
+  var rt; window.addEventListener('resize',function(){ clearTimeout(rt); rt=setTimeout(function(){ apis[active].relayout(); },150); });
+  activate(0);
+  var again=function(){ apis[active].relayout(); };
+  if(document.fonts && document.fonts.ready) document.fonts.ready.then(again);
+  window.addEventListener('load',again);
 })();
 <\/script>
 </body></html>`;
 }
 
-/* ===================== 5. UI ===================== */
-const files={old:null,new:null};
-let resultHtml='', resultName='';
+/* ---------- 모드별 진입점 ---------- */
+function buildPairResult(blocksA, blocksB, meta, opts, onProgress){
+  const prog=p=>{ if(onProgress) onProgress(p); };
+  if(opts.attachOnly){
+    const cut=(bs)=>{ const idx=bs.findIndex(b=>b.type==='title'&&/첨부/.test(b.text)); return idx>=0?bs.slice(idx):bs; };
+    blocksA=cut(blocksA); blocksB=cut(blocksB);
+  }
+  prog(45);
+  const ctx=newCtx('v0');
+  diffBlocks(ctx, blocksA, blocksB, {report:false}, f=>prog(45+Math.round(40*f)));
+  prog(88);
+  const html=viewHtml(ctx, Object.assign({extraKind:'fmt'}, meta));
+  return {html:pageHtml('비교_'+meta.nameA+'_vs_'+meta.nameB, [{tab:'', html, badge:''}]), count:ctx.summary.length, stat:ctx.stat};
+}
+
+/* parts = [{which:'con'|'sep', audit:{doc,name,file}, }], report={doc,name} */
+function buildReportResult(report, parts, onProgress){
+  const prog=p=>{ if(onProgress) onProgress(p); };
+  const views=[]; const info=[];
+  parts.forEach((pt,pi)=>{
+    const base=30+pi*30;
+    const label = pt.which==='con' ? '연결' : '별도';
+    const rp=reportPart(report.doc, pt.which);
+    if(!rp.found) throw new Error('보고서에서 '+label+' 재무제표·주석 부분(Ⅲ장)을 찾지 못했습니다.');
+    const ref=new Map(rp.notes.filter(b=>b.type==='nt').map(b=>[b.no,b.text]));
+    const ap=auditPart(pt.audit.doc, ref);
+    prog(base+8);
+    const ctx=newCtx(pt.which);
+    diffStatements(ctx, ap.stmts, rp.stmts, pt.which==='con'?'연결 ':'');
+    prog(base+14);
+    if(ap.notes.length||rp.notes.length) addChapter(ctx,'주석','주석','same');
+    diffBlocks(ctx, ap.notes, rp.notes, {report:true}, f=>prog(base+14+Math.round(14*f)));
+    const meta={
+      nameA:pt.audit.name, descA:label+' 감사(검토)전 DSD · 재무제표 '+ap.stmts.length+'개 · 주석 '+ap.notes.filter(b=>b.type==='nt').length+'개',
+      nameB:report.name, descB:report.title+' · Ⅲ장 '+label+'재무제표·주석 부분 · 재무제표 '+rp.stmts.length+'개 · 주석 '+rp.notes.filter(b=>b.type==='nt').length+'개',
+      colA:label+' DSD', colB:'보고서', extraKind:'nm'
+    };
+    const real=ctx.summary.filter(s=>s.kind!=='nm').length;
+    views.push({tab:label, html:viewHtml(ctx,meta), badge:'변경 '+real+(ctx.stat.nm?' · 명칭 '+ctx.stat.nm:'')});
+    info.push({label, real, nm:ctx.stat.nm, stmtsA:ap.stmts.length, stmtsB:rp.stmts.length, ntA:meta.descA, ntB:meta.descB});
+  });
+  prog(90);
+  return {html:pageHtml('비교_'+report.name+'_연결·별도', views), info};
+}
+/* ===================== 6. UI ===================== */
 const $=id=>document.getElementById(id);
+let mode='pair';
+const files={old:null,new:null,rep:null,con:null,sep:null};
+const kinds={};                     // 보고서 모드 파일 판별 결과
+let resultHtml='', resultName='';
+const strip=n=>n.replace(/\.(dsd|zip)$/i,'').replace(/[\\/:*?"<>|]/g,'_');
+
+function setMode(m){
+  mode=m;
+  $('modePair').classList.toggle('on',m==='pair'); $('modeRep').classList.toggle('on',m==='rep');
+  $('inPair').hidden = m!=='pair'; $('inRep').hidden = m!=='rep';
+  $('btnSwap').hidden = m!=='pair'; $('optAttachWrap').hidden = m!=='pair';
+  $('hintPair').hidden = m!=='pair'; $('hintRep').hidden = m!=='rep';
+  if(!resultHtml) status(m==='pair'?'이전 파일과 이후 파일을 넣고 [비교]를 누르세요.':'보고서 .dsd 와 연결·별도 .dsd 를 넣고 [비교]를 누르세요. (세 파일을 한꺼번에 끌어다 놓아도 됩니다)',0);
+  refreshRun();
+}
+$('modePair').onclick=()=>setMode('pair');
+$('modeRep').onclick=()=>setMode('rep');
+
+function refreshRun(){
+  $('btnRun').disabled = mode==='pair' ? !(files.old&&files.new) : !(files.rep&&(files.con||files.sep));
+}
+
+/* --- DSD↔DSD --- */
 function setFile(side,f){
   files[side]=f;
   const n=$(side==='old'?'nameOld':'nameNew');
   n.textContent=f?f.name:'파일 선택 또는 드래그'; n.classList.toggle('empty',!f);
   const d=$(side==='old'?'descOld':'descNew');
   if(f && !d.dataset.user){ d.value=(side==='old'?'이전 버전':'이후 버전')+' · '+fmtDate(f.lastModified||Date.now())+' 수정본'; }
-  $('btnRun').disabled=!(files.old&&files.new);
+  refreshRun();
 }
 ['descOld','descNew'].forEach(id=>$(id).addEventListener('input',e=>{ e.target.dataset.user = e.target.value?'1':''; }));
-['old','new'].forEach(side=>{
-  const drop=$(side==='old'?'dropOld':'dropNew'), inp=$(side==='old'?'fileOld':'fileNew');
-  inp.addEventListener('change',()=>setFile(side,inp.files[0]||null));
-  drop.addEventListener('dragover',e=>{e.preventDefault();drop.classList.add('over');});
-  drop.addEventListener('dragleave',()=>drop.classList.remove('over'));
-  drop.addEventListener('drop',e=>{e.preventDefault();drop.classList.remove('over');const f=e.dataTransfer.files[0];if(f)setFile(side,f);});
-});
-document.body.addEventListener('dragover',e=>e.preventDefault());
-document.body.addEventListener('drop',e=>{ if(e.target.closest('.drop')) return; e.preventDefault(); const fs=[...e.dataTransfer.files].filter(f=>/\.(dsd|zip)$/i.test(f.name)); if(fs.length>=2){ setFile('old',fs[0]); setFile('new',fs[1]); } else if(fs.length===1){ setFile(files.old?'new':'old',fs[0]); } });
 $('btnSwap').onclick=()=>{
   const t=files.old; const dO=$('descOld'), dN=$('descNew'); const tv=dO.value, tu=dO.dataset.user;
   dO.value=dN.value; dO.dataset.user=dN.dataset.user; dN.value=tv; dN.dataset.user=tu;
   setFile('old',files.new); setFile('new',t);
 };
 
+/* --- 보고서 모드: 파일 판별 --- */
+const docCache=new Map();
+async function loadDoc(f){ if(!docCache.has(f)) docCache.set(f, readDsd(f)); return docCache.get(f); }
+const KIND_TXT={report:'보고서',con:'연결',sep:'별도'};
+async function setRepFile(slot,f){
+  files[slot]=f;
+  const id=slot.charAt(0).toUpperCase()+slot.slice(1);
+  const n=$('name'+id), k=$('kind'+id);
+  n.textContent=f?f.name:'파일 선택 또는 드래그'; n.classList.toggle('empty',!f);
+  k.textContent=''; k.classList.remove('warn');
+  refreshRun();
+  if(!f) return;
+  try{
+    const dk=docKind(await loadDoc(f)); kinds[slot]=dk;
+    const want = slot==='rep'?'report':slot;
+    k.textContent = dk.name ? '· '+dk.name : '';
+    if(dk.kind!==want){ k.textContent='· '+KIND_TXT[dk.kind]+' 파일로 보입니다'; k.classList.add('warn'); }
+  }catch(e){ k.textContent='· 읽기 오류'; k.classList.add('warn'); }
+}
+async function autoAssign(list){
+  status('파일 종류를 확인하는 중…',3);
+  const res=[];
+  for(const f of list){ try{ res.push({f, k:docKind(await loadDoc(f)).kind}); }catch(e){ res.push({f,k:'?'}); } }
+  const rep=res.find(x=>x.k==='report');
+  if(rep || list.length>=3){
+    setMode('rep');
+    for(const x of res){ if(x.k==='report') await setRepFile('rep',x.f); else if(x.k==='con') await setRepFile('con',x.f); else if(x.k==='sep') await setRepFile('sep',x.f); }
+    status('파일을 나눠 넣었습니다: '+res.map(x=>KIND_TXT[x.k]||'?').join(' · ')+' — [비교]를 누르세요.',0);
+  }else{
+    setMode('pair'); setFile('old',list[0]); if(list[1]) setFile('new',list[1]);
+    status('이전·이후 파일을 넣었습니다 — [비교]를 누르세요.',0);
+  }
+}
+
+/* --- 드래그·선택 연결 --- */
+const SLOTS=[['old','dropOld','fileOld'],['new','dropNew','fileNew'],['rep','dropRep','fileRep'],['con','dropCon','fileCon'],['sep','dropSep','fileSep']];
+SLOTS.forEach(([slot,dropId,inpId])=>{
+  const drop=$(dropId), inp=$(inpId);
+  const put=f=>{ if(slot==='old'||slot==='new') setFile(slot,f); else setRepFile(slot,f); };
+  inp.addEventListener('change',()=>put(inp.files[0]||null));
+  drop.addEventListener('dragover',e=>{e.preventDefault();drop.classList.add('over');});
+  drop.addEventListener('dragleave',()=>drop.classList.remove('over'));
+  drop.addEventListener('drop',e=>{
+    e.preventDefault(); e.stopPropagation(); drop.classList.remove('over');
+    const fs=[...e.dataTransfer.files].filter(f=>/\.(dsd|zip)$/i.test(f.name));
+    if(fs.length>1) autoAssign(fs); else if(fs[0]) put(fs[0]);
+  });
+});
+document.body.addEventListener('dragover',e=>e.preventDefault());
+document.body.addEventListener('drop',e=>{
+  if(e.target.closest('.drop')) return; e.preventDefault();
+  const fs=[...e.dataTransfer.files].filter(f=>/\.(dsd|zip)$/i.test(f.name));
+  if(fs.length) autoAssign(fs);
+});
+
 function status(msg,pct,err){
   $('statusText').textContent=msg; $('statusbar').classList.toggle('err',!!err);
   if(pct!=null){ $('progBar').style.width=pct+'%'; $('pct').textContent=pct+'%'; }
 }
 const tick=()=>new Promise(r=>setTimeout(r,0));
+function showResult(html){
+  const v=$('view'); $('hint').style.display='none'; v.style.display='block';
+  if(v.dataset.url) URL.revokeObjectURL(v.dataset.url);
+  const url=URL.createObjectURL(new Blob([html],{type:'text/html'})); v.dataset.url=url; v.src=url;
+}
 
+async function runPair(){
+  status('1/5 파일 압축 해제 중… (이전 파일)',5); await tick();
+  const da=await readDsd(files.old);
+  status('1/5 파일 압축 해제 중… (이후 파일)',15); await tick();
+  const db=await readDsd(files.new);
+  status('2/5 문서 구조 분석 중…',25); await tick();
+  const ba=collectBlocks(da), bb=collectBlocks(db);
+  status('3/5 블록 대응·차이 계산 중…',40); await tick();
+  const nameA=files.old.name, nameB=files.new.name;
+  const meta={nameA,nameB,descA:$('descOld').value||'이전 버전',descB:$('descNew').value||'이후 버전'};
+  const r=buildPairResult(ba,bb,meta,{attachOnly:$('optAttach').checked},p=>status(p<88?'3/5 블록 대응·차이 계산 중…':'4/5 결과 화면 생성 중…',p));
+  resultHtml=r.html; resultName='비교__'+strip(nameA)+'__vs__'+strip(nameB)+'.html';
+  status('5/5 결과 표시 중…',94); await tick();
+  showResult(resultHtml);
+  status(`완료 — 블록 ${ba.length}(이전) / ${bb.length}(이후) · 변경 사항 ${r.count}건`,100);
+}
+async function runReport(){
+  status('1/5 보고서 압축 해제 중…',5); await tick();
+  const rdoc=await loadDoc(files.rep);
+  const dn=rdoc.getElementsByTagName('DOCUMENT-NAME')[0];
+  const report={doc:rdoc, name:files.rep.name, title:dn?norm(dn.textContent):'보고서'};
+  const parts=[];
+  if(files.con){ status('1/5 연결 DSD 압축 해제 중…',12); await tick(); parts.push({which:'con', audit:{doc:await loadDoc(files.con), name:files.con.name}}); }
+  if(files.sep){ status('1/5 별도 DSD 압축 해제 중…',20); await tick(); parts.push({which:'sep', audit:{doc:await loadDoc(files.sep), name:files.sep.name}}); }
+  status('2/5 보고서 Ⅲ장에서 재무제표·주석 범위 추출 중…',26); await tick();
+  const r=buildReportResult(report, parts, p=>{
+    const step = p<44?'3/5 연결 재무제표 금액 대사·주석 비교 중…':(p<90?'3/5 별도 재무제표 금액 대사·주석 비교 중…':'4/5 결과 화면 생성 중…');
+    status(parts.length===1?step.replace(/연결 |별도 /,''):step, Math.min(92,p));
+  });
+  resultHtml=r.html; resultName='비교__'+strip(files.rep.name)+'__연결·별도.html';
+  status('5/5 결과 표시 중…',95); await tick();
+  showResult(resultHtml);
+  status('완료 — '+r.info.map(x=>`${x.label}: 변경 사항 ${x.real}건${x.nm?' · 명칭 '+x.nm+'건':''}`).join('  |  '),100);
+}
 $('btnRun').onclick=async()=>{
   try{
     $('btnRun').disabled=true;
-    status('1/5 파일 압축 해제 중… (이전 파일)',5); await tick();
-    const da=await readDsd(files.old);
-    status('1/5 파일 압축 해제 중… (이후 파일)',15); await tick();
-    const db=await readDsd(files.new);
-    status('2/5 문서 구조 분석 중…',25); await tick();
-    const ba=collectBlocks(da), bb=collectBlocks(db);
-    status('3/5 블록 대응·차이 계산 중…',40); await tick();
-    const nameA=files.old.name, nameB=files.new.name;
-    const meta={nameA,nameB,descA:$('descOld').value||'이전 버전',descB:$('descNew').value||'이후 버전'};
-    resultHtml=buildResult(ba,bb,meta,{attachOnly:$('optAttach').checked},p=>{ status(p<60?'3/5 블록 대응·차이 계산 중…':'4/5 결과 화면 생성 중…',p); });
-    status('5/5 결과 표시 중…',92); await tick();
-    const strip=n=>n.replace(/\.(dsd|zip)$/i,'').replace(/[\\/:*?"<>|]/g,'_');
-    resultName='비교__'+strip(nameA)+'__vs__'+strip(nameB)+'.html';
-    const v=$('view'); $('hint').style.display='none'; v.style.display='block';
-    if(v.dataset.url) URL.revokeObjectURL(v.dataset.url);
-    const url=URL.createObjectURL(new Blob([resultHtml],{type:'text/html'})); v.dataset.url=url; v.src=url;
-    const m=resultHtml.match(/변경 사항 요약 \((\d+)건\)/);
-    status(`완료 — 블록 ${ba.length}(이전) / ${bb.length}(이후) · 변경 사항 ${m?m[1]:'?'}건`,100);
+    if(mode==='pair') await runPair(); else await runReport();
     $('btnDown').disabled=false;
   }catch(e){ console.error(e); status('오류: '+e.message,0,true); }
-  finally{ $('btnRun').disabled=!(files.old&&files.new); }
+  finally{ refreshRun(); }
 };
 $('btnDown').onclick=()=>{
   const a=document.createElement('a'); a.href=URL.createObjectURL(new Blob([resultHtml],{type:'text/html'})); a.download=resultName; a.click();
   setTimeout(()=>URL.revokeObjectURL(a.href),2000);
 };
+setMode('pair');
 </script>
 </body>
 </html>
