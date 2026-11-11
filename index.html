@@ -23,7 +23,7 @@ header h1 .ver{font-size:11px;font-weight:700;color:var(--accent);border:1px sol
 header .sub{color:var(--muted);font-size:11.5px}
 .modes{display:flex;border:1px solid var(--line);border-radius:6px;overflow:visible;margin-top:4px;width:max-content}
 .modes button{border:0;border-radius:0;padding:4px 10px;font-size:12px;background:var(--panel)}
-.modes button:first-child{border-radius:6px 0 0 6px}.modes button:last-child{border-radius:0 6px 6px 0;border-left:1px solid var(--line)}
+.modes button:first-child{border-radius:6px 0 0 6px}.modes button:last-child{border-radius:0 6px 6px 0}.modes button+button{border-left:1px solid var(--line)}
 .modes button.on{background:var(--accent);color:var(--accent-ink)}
 .inputs{display:flex;gap:8px;flex:1;min-width:460px}
 .inputs[hidden]{display:none}
@@ -73,6 +73,7 @@ main{flex:1;min-height:0;display:flex;flex-direction:column}
     <h1>DSD 비교 <span class="ver" id="verLabel"></span></h1>
     <div class="modes">
       <button id="modePair" class="on" data-tip="이전·이후 .dsd 두 개를&#10;처음부터 끝까지 좌우로 비교합니다">DSD ↔ DSD</button>
+      <button id="modeIxd" data-tip="DART XBRL 편집기 .ixd 두 개의&#10;입력값·서식(행·열·라벨)을 비교합니다&#10;값은 요소·기간·구성요소 기준으로 1:1 대응">IXD ↔ IXD</button>
       <button id="modeRep" data-tip="분기·반기·사업보고서 .dsd 의 Ⅲ장 재무제표·주석을&#10;감사(검토)전 연결·별도 .dsd 와 비교합니다&#10;결과는 「연결」「별도」 탭 2개">보고서 ↔ 연결·별도</button>
     </div>
   </div>
@@ -90,6 +91,22 @@ main{flex:1;min-height:0;display:flex;flex-direction:column}
         <input type="file" id="fileNew" accept=".dsd,.zip">
       </div>
       <input type="text" id="descNew" placeholder="버전 설명 (예: 이후 버전 · 2026.08.19 정정본)">
+    </div>
+  </div>
+  <div class="inputs" id="inIxd" hidden>
+    <div class="side-in">
+      <div class="drop old" id="dropIxOld" data-tip="이전 .ixd&#10;두 파일을 한꺼번에 끌어다 놓으면 수정 시각이 이른 쪽을 이전으로 넣습니다">
+        <span class="tag">이전</span><span class="name empty" id="nameIxOld">파일 선택 또는 드래그</span>
+        <input type="file" id="fileIxOld" accept=".ixd,.zip">
+      </div>
+      <input type="text" id="descIxOld" placeholder="버전 설명 (예: 태깅 반영 전)">
+    </div>
+    <div class="side-in">
+      <div class="drop new" id="dropIxNew" data-tip="이후 .ixd">
+        <span class="tag">이후</span><span class="name empty" id="nameIxNew">파일 선택 또는 드래그</span>
+        <input type="file" id="fileIxNew" accept=".ixd,.zip">
+      </div>
+      <input type="text" id="descIxNew" placeholder="버전 설명 (예: 1111 수정본)">
     </div>
   </div>
   <div class="inputs" id="inRep" hidden>
@@ -127,6 +144,11 @@ main{flex:1;min-height:0;display:flex;flex-direction:column}
       블록(문단·표) 단위로 대응시킨 뒤 문단은 글자, 표는 셀 단위로 차이를 표시합니다.<br>
       결과는 그대로 단일 HTML로 저장할 수 있습니다.
     </div>
+    <div id="hintIxd" hidden>
+      왼쪽에 <b>이전</b>, 오른쪽에 <b>이후</b> .ixd(DART XBRL 편집기 파일)를 넣으면<br>
+      입력값을 (연결·별도, 요소, 기간, 구성요소) 기준으로 1:1 비교하고, 바뀐 서식의 행·열·라벨·순서 변경을 함께 보여줍니다.<br>
+      파일이 커도(수십 MB) 필요한 서식만 골라서 읽습니다.
+    </div>
     <div id="hintRep" hidden>
       <b>보고서</b>(분기·반기·사업보고서) .dsd 와 감사(검토)전 <b>연결</b>·<b>별도</b> .dsd 를 넣으면<br>
       보고서 Ⅲ장의 재무제표·주석만 잘라 각각 비교하고, 결과를 「연결」「별도」 탭으로 보여줍니다.<br>
@@ -137,7 +159,7 @@ main{flex:1;min-height:0;display:flex;flex-direction:column}
 </main>
 
 <script>
-const APP_VERSION = 'v0.5';
+const APP_VERSION = 'v0.6';
 document.getElementById('verLabel').textContent = APP_VERSION;
 
 
@@ -1310,28 +1332,315 @@ function buildReportResult(report, parts, onProgress){
   prog(90);
   return {html:pageHtml('비교_'+report.name+'_연결·별도', views), info};
 }
+/* ===================== 7. IXD ↔ IXD 모드 ===================== */
+/* DART XBRL 편집기 파일(.ixd = zip)
+   - TaxonomyItemCompanyV.xml : 값 (연결·별도 / 요소 / 기간 / 구성요소 / 언어 → 값)
+   - EditorMenu.xml           : 목차(재무제표·주석 서식, 사용 여부)
+   - *.frm                    : 서식 — 행(LINEITEM)·열(DOMAIN), 한글 라벨, 사용 여부, 순서
+   큰 파일(서식 수백 개)이라 zip 목록만 읽고 필요한 서식만 골라서 푼다. */
+
+function zipOpen(buf){
+  const u8=new Uint8Array(buf), dv=new DataView(buf);
+  let eocd=-1;
+  for(let i=u8.length-22;i>=Math.max(0,u8.length-65557);i--){ if(dv.getUint32(i,true)===0x06054b50){ eocd=i; break; } }
+  if(eocd<0) throw new Error('ZIP 형식이 아닙니다.');
+  const count=dv.getUint16(eocd+10,true), cdOff=dv.getUint32(eocd+16,true);
+  const td=new TextDecoder('utf-8'); const map=new Map(); let p=cdOff;
+  for(let k=0;k<count;k++){
+    if(dv.getUint32(p,true)!==0x02014b50) break;
+    const method=dv.getUint16(p+10,true), crc=dv.getUint32(p+16,true), csize=dv.getUint32(p+20,true), usize=dv.getUint32(p+24,true);
+    const nlen=dv.getUint16(p+28,true), elen=dv.getUint16(p+30,true), clen=dv.getUint16(p+32,true), loff=dv.getUint32(p+42,true);
+    map.set(td.decode(u8.subarray(p+46,p+46+nlen)), {method,crc,csize,usize,loff});
+    p+=46+nlen+elen+clen;
+  }
+  return {u8, dv, map};
+}
+async function zipText(z, name){
+  const e=z.map.get(name); if(!e) return null;
+  const lh=e.loff, nlen=z.dv.getUint16(lh+26,true), elen=z.dv.getUint16(lh+28,true);
+  const data=z.u8.subarray(lh+30+nlen+elen, lh+30+nlen+elen+e.csize);
+  let bytes;
+  if(e.method===0) bytes=data;
+  else if(e.method===8){
+    const rs=new ReadableStream({start(c){c.enqueue(data.slice());c.close();}});
+    bytes=new Uint8Array(await new Response(rs.pipeThrough(new DecompressionStream('deflate-raw'))).arrayBuffer());
+  } else throw new Error('지원하지 않는 압축 방식: '+e.method);
+  return new TextDecoder('utf-8').decode(bytes).replace(/^﻿/,'');
+}
+
+const xg=(s,t)=>{ const m=s.match(new RegExp('<'+t+'>([\\s\\S]*?)</'+t+'>')); return m?m[1]:''; };
+const xun=s=>s.replace(/&lt;/g,'<').replace(/&gt;/g,'>').replace(/&quot;/g,'"').replace(/&apos;/g,"'").replace(/&#xD;|&#13;/g,'').replace(/&#xA;|&#10;/g,'\n').replace(/&amp;/g,'&');
+
+async function readIxd(file){
+  const z=zipOpen(await file.arrayBuffer());
+  if(!z.map.has('TaxonomyItemCompanyV.xml')) throw new Error(file.name+' 은(는) DART XBRL 편집기 파일(.ixd)이 아닙니다 (TaxonomyItemCompanyV.xml 없음).');
+  const report=await zipText(z,'Report.xml')||'', menu=await zipText(z,'EditorMenu.xml')||'', V=await zipText(z,'TaxonomyItemCompanyV.xml');
+  return {file, z, report, menu, V, title:xun(xg(report,'DocumentTitle'))||file.name};
+}
+function ixdValues(V){
+  const m=new Map();
+  for(const it of V.match(/<ValueItem>[\s\S]*?<\/ValueItem>/g)||[]){
+    const r={cs:xg(it,'REPORT_CS_TYPE'), el:xg(it,'ElementName'), ctx:xg(it,'ContextKey'), dom:xg(it,'DomainName'), dim:xg(it,'DimensionName'), lang:xg(it,'LANGUAGE_TYPE'), fs:xg(it,'BaseFSType'), val:xun(xg(it,'Value'))};
+    m.set([r.cs,r.el,r.ctx,r.dom,r.lang].join('|'), r);
+  }
+  return m;
+}
+function ixdMenu(menu){
+  return (menu.match(/<MenuItem>[\s\S]*?<\/MenuItem>/g)||[]).map((it,i)=>({id:xg(it,'ID'), text:xun(xg(it,'Text')), cs:xg(it,'CsType'), fs:xg(it,'FsType'), wm:xg(it,'FsWmType'), form:xg(it,'FormFileName'), use:xg(it,'IsUse')==='true', page:xg(it,'IsPage')==='true', idx:i}));
+}
+function ixdReportType(title){
+  if(/1\s*분기/.test(title)) return 'FirstQuarterlyReport';
+  if(/반기/.test(title)) return 'HalfYearReport';
+  if(/3\s*분기/.test(title)) return 'ThirdQuarterlyReport';
+  return 'AnnualReport';
+}
+const RT_LABEL={FirstQuarterlyReport:'1분기',HalfYearReport:'반기',ThirdQuarterlyReport:'3분기',AnnualReport:'사업(연간)'};
+/* 서식에서 해당 보고서 유형의 행·열 */
+function ixdFormLines(text, rt){
+  const blocks=text.match(/<ReportItem>[\s\S]*?<\/ReportItem>/g)||[];
+  const blk=blocks.find(b=>xg(b,'ReportType')===rt) || blocks[0] || '';
+  const lines=new Map(), doms=new Map(); let seq=0;
+  for(const t of blk.match(/<TableStyleItem>[\s\S]*?<\/TableStyleItem>/g)||[]){
+    const type=xg(t,'ItemType'); if(type!=='LINEITEM' && type!=='DOMAIN') continue;
+    const el=xg(t,'ElementName'); if(!el) continue;
+    const di=xg(t,'DesignInfo');
+    const lab=xun(xun((di.match(/&lt;KorLabel&gt;([\s\S]*?)&lt;\/KorLabel&gt;/)||['',''])[1]));
+    const use=/&lt;IsUse&gt;true&lt;\/IsUse&gt;/.test(di);
+    const r={el, label:lab, use, order:+xg(t,'Order')||0, parent:xg(t,'PresentationElementNameFrom'), seq:seq++};
+    const map=type==='LINEITEM'?lines:doms;
+    const old=map.get(el);
+    if(!old || (!old.use && use)) map.set(el,r);     // 같은 요소가 여러 번이면 사용 중인 것 우선
+  }
+  return {lines, doms};
+}
+
+/* 기본정보(GCD) 요소·구성요소 라벨 */
+const GCD_LABEL={AuthorName:'작성자 성명',AuthorTitle:'작성자 직위',ContactPersonnelEmail:'담당자 이메일',ContactPersonnelFaxNumber:'담당자 팩스',ContactPersonnelTelephoneNumber:'담당자 전화번호',
+  SeparatedAuditOpinion:'별도 감사의견',SeparatedAuditReportDate:'별도 감사보고서일',SeparatedAuditType:'별도 감사유형',SeparatedAuditorIndentifcationCode:'별도 감사인 고유번호',SeparatedAuditorName:'별도 감사인명',
+  ConsolidatedAuditOpinion:'연결 감사의견',ConsolidatedAuditReportDate:'연결 감사보고서일',ConsolidatedAuditType:'연결 감사유형',ConsolidatedAuditorIndentifcationCode:'연결 감사인 고유번호',ConsolidatedAuditorName:'연결 감사인명',
+  Amendment:'정정 여부',EntityRegistrantName:'회사명',
+  PersonnelForContactMember:'연락 담당자',PersonnelInChargeMember:'공시 책임자',XBRLConsultingFirmMember:'작성 대행사',
+  PeriodCoveredbytheReportofCurrentFiscalYearorQuarterorHalfYearMember:'당기(보고기간)',PeriodCoveredbyLastFiscalYearMember:'전기',PeriodCoveredbyTheYearBeforeLastFiscalYearMember:'전전기',PeriodCoveredbyQuarterlyorHalfYearReportofLastFiscalYearMember:'전기 동기(분·반기)'};
+function camelWords(s){ return s.replace(/Member$/,'').replace(/([a-z])([A-Z])/g,'$1 $2'); }
+const CTX_G={CFY:'당기',PFY:'전기',BPFY:'전전기'}, CTX_P={QUARTER:'3개월',ACCUMULATE:'누적',YEAR:'연간',HALF:'반기',INSTANT:'시점'};
+function ctxLabel(ctx, fs){
+  const [g,p]=ctx.split('_');
+  if(fs==='GCD') return '';
+  if(fs==='BS') return (CTX_G[g]||g)+'말';
+  return (CTX_G[g]||g)+' '+(CTX_P[p]||p||'');
+}
+const CTX_ORDER=['CFY_QUARTER','CFY_ACCUMULATE','CFY_YEAR','PFY_QUARTER','PFY_ACCUMULATE','PFY_YEAR','BPFY_YEAR'];
+function fmtVal(v){
+  if(v===undefined||v===null) return '';
+  if(/^-?\d+(\.\d+)?$/.test(v) && !/^-?0\d/.test(v)){ const [i,d]=v.split('.'); return i.replace(/\B(?=(\d{3})+(?!\d))/g,',')+(d?'.'+d:''); }
+  return v.replace(/<[^>]+>/g,' ').replace(/\s+/g,' ').trim();
+}
+
+/* 값(cs, fs)마다 실제로 쓰는 서식 찾기: 바뀐 서식 우선, 없으면 값 요소를 가장 많이 담은 서식 */
+async function pickForms(ix, menu, groups, changed, rt, onStep){
+  const picked=new Map();   // 'cs|fs' → [{form,text,lines,doms,menuItem}]
+  const cache=new Map();
+  const load=async(fn)=>{ if(!cache.has(fn)){ const t=await zipText(ix.z,fn); cache.set(fn, t?ixdFormLines(t,rt):{lines:new Map(),doms:new Map()}); } return cache.get(fn); };
+  let step=0; const total=[...groups.keys()].length;
+  for(const [key,els] of groups){
+    const [cs,fs]=key.split('|');
+    onStep && onStep(step++/Math.max(1,total), cs, fs);
+    let cands=menu.filter(m=>m.cs===cs && m.fs===fs && m.form && m.use && ix.z.map.has(m.form));
+    const std=cands.filter(m=>/^D\d/.test(m.form)); if(std.length) cands=std;
+    const ch=cands.filter(m=>changed.has(m.form));
+    const out=[]; let left=new Set(els);
+    const pool = ch.length ? ch.concat(cands.filter(m=>!changed.has(m.form))) : cands;
+    // 바뀐 서식은 모두 포함, 이후 남은 요소를 가장 많이 덮는 서식을 최대 2개까지
+    for(const m of ch){ const f=await load(m.form); out.push(Object.assign({menuItem:m},f)); for(const e of [...left]) if(f.lines.has(e)&&f.lines.get(e).use) left.delete(e); }
+    for(let round=0; round<2 && left.size; round++){
+      let best=null, bs=0;
+      for(const m of pool){
+        if(out.some(o=>o.menuItem.form===m.form)) continue;
+        const f=await load(m.form); let c=0; for(const e of left) if(f.lines.has(e)&&f.lines.get(e).use) c++;
+        if(c>bs){ bs=c; best={menuItem:m, ...f}; }
+      }
+      if(!best) break;
+      out.push(best); for(const e of [...left]) if(best.lines.has(e)&&best.lines.get(e).use) left.delete(e);
+    }
+    picked.set(key,out);
+  }
+  return picked;
+}
+
+async function buildIxdResult(A, B, meta, onProgress){
+  const prog=(p,msg)=>{ if(onProgress) onProgress(p,msg); };
+  const rt=ixdReportType(B.title||A.title);
+  const menuA=ixdMenu(A.menu), menuB=ixdMenu(B.menu);
+  const va=ixdValues(A.V), vb=ixdValues(B.V);
+  prog(30,'2/5 값 비교 중…');
+  // 바뀐 서식 (CRC 비교)
+  const changed=new Set();
+  for(const [n,e] of B.z.map){ if(!/\.frm$/i.test(n)) continue; const o=A.z.map.get(n); if(!o || o.crc!==e.crc || o.usize!==e.usize) changed.add(n); }
+  for(const n of A.z.map.keys()) if(/\.frm$/i.test(n) && !B.z.map.has(n)) changed.add(n);
+  // 값 그룹 (cs|fs → 요소들)
+  const groups=new Map();
+  for(const r of [...va.values(),...vb.values()]){ if(r.fs==='GCD'||r.cs==='NONE') continue; const k=r.cs+'|'+r.fs; if(!groups.has(k)) groups.set(k,new Set()); groups.get(k).add(r.el); }
+  prog(35,'3/5 사용 중인 서식 찾는 중…');
+  const formsB=await pickForms(B, menuB, groups, changed, rt, (f,cs,fs)=>prog(35+Math.round(25*f),'3/5 사용 중인 서식 찾는 중… ('+(cs==='Separated'?'별도':'연결')+' '+fs+')'));
+  // 라벨 사전
+  const labOf=(cs,fs,el)=>{ for(const f of formsB.get(cs+'|'+fs)||[]){ const l=f.lines.get(el); if(l&&l.label) return l.label; } for(const fl of formsB.values()) for(const f of fl){ const l=f.lines.get(el); if(l&&l.label) return l.label; } return GCD_LABEL[el]||camelWords(el); };
+  const domOf=(cs,fs,d)=>{ if(!d) return ''; for(const f of formsB.get(cs+'|'+fs)||[]){ const l=f.doms.get(d); if(l&&l.label) return l.label; } for(const fl of formsB.values()) for(const f of fl){ const l=f.doms.get(d); if(l&&l.label) return l.label; } return GCD_LABEL[d]||camelWords(d); };
+  const seqOf=(cs,fs,el)=>{ const fl=formsB.get(cs+'|'+fs)||[]; for(let i=0;i<fl.length;i++){ const l=fl[i].lines.get(el); if(l) return i*100000+l.seq; } return 9e9; };
+
+  // 섹션
+  const sections=new Map();
+  const secKey=(cs,fs)=>cs+'|'+fs;
+  const csName=cs=>cs==='Separated'?'별도':(cs==='Consolidated'?'연결':'');
+  const FS_NAME={BS:'재무상태표',IS:'손익계산서·포괄손익계산서',CE:'자본변동표',CF:'현금흐름표',NOTE:'주석',GCD:'기본정보'};
+  const sec=(cs,fs)=>{ const k=secKey(cs,fs); if(!sections.has(k)){ const fl=formsB.get(k)||[]; sections.set(k,{cs,fs,title:(fs==='GCD'||cs==='NONE')?'기본정보':(csName(cs)+' '+(FS_NAME[fs]||fs)), forms:fl.map(f=>f.menuItem.form), rows:[]}); } return sections.get(k); };
+  const counts={chg:0,add:0,del:0,nm:0,mv:0};
+  // 값 차이
+  for(const k of new Set([...va.keys(),...vb.keys()])){
+    const a=va.get(k), b=vb.get(k);
+    if(a && b && a.val===b.val) continue;
+    const r=b||a; const fs=(r.cs==='NONE'?'GCD':r.fs);
+    const kind = a&&b ? 'chg' : (b?'add':'del');
+    counts[kind]++;
+    sec(r.cs==='NONE'?'NONE':r.cs, fs).rows.push({kind, what:'값', label:labOf(r.cs,r.fs,r.el), el:r.el, ctx:ctxLabel(r.ctx,fs), ctxKey:r.ctx, dom:domOf(r.cs,r.fs,r.dom)+(r.lang&&r.lang!=='KO'?' ['+r.lang+']':''), A:a?fmtVal(a.val):'', B:b?fmtVal(b.val):'', sort:seqOf(r.cs,r.fs,r.el)*10+CTX_ORDER.indexOf(r.ctx)});
+  }
+  prog(65,'4/5 서식(행·열·라벨) 비교 중…');
+  // 서식 구조 차이: 바뀐 서식 중 메뉴에서 쓰는 것
+  const formMenu=new Map(menuB.filter(m=>m.form).map(m=>[m.form,m]));
+  const chList=[...changed].filter(fn=>formMenu.has(fn) && formMenu.get(fn).use);
+  let ci=0;
+  for(const fn of chList){
+    prog(65+Math.round(20*ci++/Math.max(1,chList.length)),'4/5 서식 비교 중… ('+fn+')');
+    const m=formMenu.get(fn);
+    const ta=await zipText(A.z,fn), tb=await zipText(B.z,fn);
+    const fa=ta?ixdFormLines(ta,rt):{lines:new Map(),doms:new Map()}, fb=tb?ixdFormLines(tb,rt):{lines:new Map(),doms:new Map()};
+    const s=sec(m.cs, m.fs==='NOTE'?'NOTE':m.fs);
+    if(!s.forms.includes(fn)) s.forms.push(fn);
+    for(const [what,ma,mb] of [['행',fa.lines,fb.lines],['열',fa.doms,fb.doms]]){
+      for(const el of new Set([...ma.keys(),...mb.keys()])){
+        const a=ma.get(el), b=mb.get(el);
+        const ua=!!(a&&a.use), ub=!!(b&&b.use);
+        const base={what, el, ctx:'', dom:'', form:fn, sort:(b||a).seq*10+1e10};
+        if(!ua && ub){ counts.add++; s.rows.push(Object.assign(base,{kind:'add', label:b.label, A:'', B:what+' 사용'})); continue; }
+        if(ua && !ub){ counts.del++; s.rows.push(Object.assign(base,{kind:'del', label:a.label, A:what+' 사용', B:b?'사용 안 함':'(서식에서 없음)'})); continue; }
+        if(ua && ub && a.label!==b.label){ counts.nm++; s.rows.push(Object.assign(base,{kind:'nm', label:b.label, A:a.label, B:b.label})); }
+      }
+      // 순서: 양쪽 모두 쓰는 요소의 상대 순서
+      const ordA=[...ma.values()].filter(x=>x.use && mb.get(x.el) && mb.get(x.el).use).sort((x,y)=>x.seq-y.seq).map(x=>x.el);
+      const ordB=[...mb.values()].filter(x=>x.use && ma.get(x.el) && ma.get(x.el).use).sort((x,y)=>x.seq-y.seq).map(x=>x.el);
+      if(ordA.join()!==ordB.join()){
+        const ops=seqDiff(ordA,ordB,x=>x,x=>x);
+        for(const o of ops) if(o[0]==='+'){ const b=mb.get(ordB[o[1]]); counts.mv++; s.rows.push({kind:'mv', what, el:b.el, label:b.label, ctx:'', dom:'', A:'', B:'위치 이동', form:fn, sort:b.seq*10+1e10}); }
+      }
+    }
+  }
+  prog(88,'5/5 결과 화면 생성 중…');
+  const ordered=[...sections.values()].sort((x,y)=>(x.fs==='GCD'?0:1)-(y.fs==='GCD'?0:1) || (x.cs<y.cs?-1:x.cs>y.cs?1:0) || ['BS','IS','CE','CF','NOTE'].indexOf(x.fs)-['BS','IS','CE','CF','NOTE'].indexOf(y.fs));
+  ordered.forEach(s=>s.rows.sort((x,y)=>x.sort-y.sort));
+  const info={rt, valsA:va.size, valsB:vb.size, changedForms:chList, counts};
+  return {html:ixdPageHtml(meta, ordered, info), info};
+}
+
+const IX_KIND={chg:'변경',add:'추가',del:'삭제',nm:'라벨',mv:'순서'};
+const isNumTxt=v=>!v || /^-?[\d,]+(\.\d+)?$/.test(v);
+function ixdPageHtml(meta, sections, info){
+  const c=info.counts, total=c.chg+c.add+c.del+c.nm+c.mv;
+  const nav=sections.map((s,i)=>'<option value="s'+i+'">'+esc(s.title)+' ('+s.rows.length+')</option>').join('');
+  const chips=['chg','add','del','nm','mv'].filter(k=>c[k]).map(k=>'<button class="chip" data-k="'+k+'"><i class="'+k+'"></i>'+IX_KIND[k]+' '+c[k]+'</button>').join('');
+  const secHtml=sections.map((s,i)=>{
+    const rows=s.rows.map(r=>'<tr class="r-'+r.kind+'"><td class="k '+r.kind+'">'+IX_KIND[r.kind]+'</td><td class="w">'+esc(r.what)+'</td><td>'+esc(r.label)+'<div class="el">'+esc(r.el)+'</div></td><td class="ctx">'+esc(r.ctx)+'</td><td>'+esc(r.dom)+'</td><td class="v'+(r.kind==='chg'?' c':'')+(r.kind==='del'?' d':'')+(isNumTxt(r.A)?'':' t')+'">'+esc(trunc(r.A,160))+'</td><td class="v'+(r.kind==='chg'?' c':'')+(r.kind==='add'?' a':'')+(r.kind==='nm'?' n':'')+(isNumTxt(r.B)?'':' t')+'">'+esc(trunc(r.B,160))+'</td></tr>').join('');
+    return '<section class="sec" id="s'+i+'"><h3>'+esc(s.title)+' <span>'+s.rows.length+'건'+(s.forms.length?' · 서식 '+esc(s.forms.join(', ')):'')+'</span></h3>'+
+      '<table><thead><tr><th>구분</th><th>대상</th><th>과목(라벨) / 요소</th><th>기간</th><th>구성요소</th><th>이전</th><th>이후</th></tr></thead><tbody>'+(rows||'<tr><td colspan="7" class="none">차이 없음</td></tr>')+'</tbody></table></section>';
+  }).join('');
+  return `<!DOCTYPE html>
+<html lang="ko"><head><meta charset="utf-8"><title>IXD비교_${esc(meta.nameA)}_vs_${esc(meta.nameB)}</title>
+<style>
+*{box-sizing:border-box}
+html,body{margin:0;background:#fff;color:#262626;font-family:"Malgun Gothic","맑은 고딕",-apple-system,"Apple SD Gothic Neo",sans-serif}
+.hdr{display:flex;border-bottom:1px solid #A6A6A6;position:sticky;top:0;background:#fff;z-index:3}
+.hdr .hc{flex:1;padding:8px 12px;min-width:0}
+.hdr .hc+.hc{border-left:1px solid #A6A6A6}
+.hdr .fname{font-weight:bold;font-size:13.5px;color:#140BE3;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.hdr .fdesc{font-size:12px;color:#595959;margin-top:2px}
+.tb{display:flex;align-items:center;gap:6px;background:#F2F2F2;border-bottom:1px solid #A6A6A6;font-size:12px;padding:6px 12px;position:sticky;top:53px;z-index:3;flex-wrap:wrap}
+.tb .lbl{font-weight:bold;color:#595959}
+.tb select{font:inherit;font-size:12px;padding:2px 4px;max-width:300px}
+.tb .legend{margin-left:auto;display:flex;align-items:center;gap:6px;color:#262626}
+.tb .legend i{display:inline-block;width:12px;height:12px;border:1px solid #A6A6A6;vertical-align:middle}
+.tb .ver{color:#8c8c8c;margin-left:12px}
+.chip{font:inherit;font-size:12px;background:#fff;border:1px solid #A6A6A6;border-radius:12px;padding:2px 10px;cursor:pointer;color:#262626}
+.chip.on{background:#262626;color:#fff;border-color:#262626}
+.chip i{display:inline-block;width:10px;height:10px;border:1px solid #A6A6A6;margin-right:4px;vertical-align:-1px}
+i.chg{background:#FFEB9C}i.add{background:#C6EFCE}i.del{background:#FFC7CE}i.nm,i.mv{background:#DDEBF7}
+.info{padding:12px 20px 0;font-size:12px;color:#595959;line-height:1.7}
+.info b{color:#262626}
+.sec{padding:14px 20px 6px}
+.sec h3{font-size:13.5px;font-weight:bold;color:#140BE3;margin:0 0 8px}
+.sec h3 span{font-size:12px;font-weight:normal;color:#595959;margin-left:6px}
+table{border-collapse:collapse;width:100%;font-size:12px;border:1px solid #A6A6A6}
+th{background:#DEDEDE;font-weight:bold;text-align:center;border:1px solid #A6A6A6;padding:4px 8px;line-height:1.5}
+td{border:1px solid #A6A6A6;padding:4px 8px;line-height:1.5;vertical-align:top;word-break:break-all}
+td.k{text-align:center;white-space:nowrap;width:52px}
+td.k.chg{background:#FFEB9C}td.k.add{background:#C6EFCE}td.k.del{background:#FFC7CE}td.k.nm,td.k.mv{background:#DDEBF7}
+td.w{text-align:center;width:44px;color:#595959}
+td.ctx{white-space:nowrap;width:90px}
+td.v{text-align:right;white-space:nowrap;width:180px;font-variant-numeric:tabular-nums}
+td.v.t{text-align:left;white-space:normal}
+td.v.c{background:#FFEB9C}td.v.a{background:#C6EFCE}td.v.d{background:#FFC7CE}td.v.n{background:#DDEBF7}
+td .el{font-size:11px;color:#8c8c8c}
+td.none{text-align:center;color:#8c8c8c}
+tr.hide{display:none}
+@keyframes flash{0%{box-shadow:inset 0 0 0 3px #140BE3}100%{box-shadow:inset 0 0 0 3px rgba(20,11,227,0)}}
+.flash{animation:flash 1.6s ease-out forwards}
+</style></head>
+<body>
+<div class="hdr">
+  <div class="hc"><div class="fname">${esc(meta.nameA)}</div><div class="fdesc">${esc(meta.descA)} · 값 ${info.valsA}개</div></div>
+  <div class="hc"><div class="fname">${esc(meta.nameB)}</div><div class="fdesc">${esc(meta.descB)} · 값 ${info.valsB}개</div></div>
+</div>
+<div class="tb">
+  <span class="lbl">이동</span>
+  <select id="nav"><option value="">구분 이동…</option>${nav}</select>
+  <button class="chip on" data-k="">전체 ${total}</button>${chips}
+  <span class="legend"><i class="chg"></i>변경 <i class="add"></i>추가 <i class="del"></i>삭제 <i class="nm"></i>라벨·순서<span class="ver">DSD 비교 ${APP_VERSION} · IXD · ${fmtDate(Date.now())}</span></span>
+</div>
+<div class="info">보고서 유형 <b>${RT_LABEL[info.rt]||info.rt}</b> 서식 기준 · 바뀐 서식 <b>${info.changedForms.length}</b>개${info.changedForms.length?' ('+esc(info.changedForms.join(', '))+')':''} · 값은 (연결·별도, 요소, 기간, 구성요소, 언어) 기준으로 1:1 대응 · 「대상」 값=입력값, 행·열=서식 구성</div>
+${secHtml}
+<script>
+(function(){
+  var chips=document.querySelectorAll('.chip');
+  Array.prototype.forEach.call(chips,function(ch){ ch.onclick=function(){
+    Array.prototype.forEach.call(chips,function(x){x.classList.toggle('on',x===ch);});
+    var k=ch.getAttribute('data-k');
+    Array.prototype.forEach.call(document.querySelectorAll('tbody tr'),function(tr){ if(tr.querySelector('.none')) return; tr.classList.toggle('hide', !!k && !tr.classList.contains('r-'+k)); });
+  }; });
+  document.getElementById('nav').onchange=function(){ var el=document.getElementById(this.value); if(el){ var top=el.getBoundingClientRect().top+window.scrollY-100; window.scrollTo({top:top,behavior:'smooth'}); var h=el.querySelector('h3'); h.classList.remove('flash'); void h.offsetWidth; h.classList.add('flash'); } this.value=''; };
+})();
+<\/script>
+</body></html>`;
+}
 /* ===================== 6. UI ===================== */
 const $=id=>document.getElementById(id);
 let mode='pair';
-const files={old:null,new:null,rep:null,con:null,sep:null};
+const files={old:null,new:null,rep:null,con:null,sep:null,ixOld:null,ixNew:null};
 const kinds={};                     // 보고서 모드 파일 판별 결과
 let resultHtml='', resultName='';
-const strip=n=>n.replace(/\.(dsd|zip)$/i,'').replace(/[\\/:*?"<>|]/g,'_');
+const strip=n=>n.replace(/\.(dsd|zip|ixd)$/i,'').replace(/[\\/:*?"<>|]/g,'_');
 
 function setMode(m){
   mode=m;
-  $('modePair').classList.toggle('on',m==='pair'); $('modeRep').classList.toggle('on',m==='rep');
-  $('inPair').hidden = m!=='pair'; $('inRep').hidden = m!=='rep';
-  $('btnSwap').hidden = m!=='pair'; $('optAttachWrap').hidden = m!=='pair';
-  $('hintPair').hidden = m!=='pair'; $('hintRep').hidden = m!=='rep';
-  if(!resultHtml) status(m==='pair'?'이전 파일과 이후 파일을 넣고 [비교]를 누르세요.':'보고서 .dsd 와 연결·별도 .dsd 를 넣고 [비교]를 누르세요. (세 파일을 한꺼번에 끌어다 놓아도 됩니다)',0);
+  $('modePair').classList.toggle('on',m==='pair'); $('modeIxd').classList.toggle('on',m==='ixd'); $('modeRep').classList.toggle('on',m==='rep');
+  $('inPair').hidden = m!=='pair'; $('inIxd').hidden = m!=='ixd'; $('inRep').hidden = m!=='rep';
+  $('btnSwap').hidden = m==='rep'; $('optAttachWrap').hidden = m!=='pair';
+  $('hintPair').hidden = m!=='pair'; $('hintIxd').hidden = m!=='ixd'; $('hintRep').hidden = m!=='rep';
+  if(!resultHtml) status(m==='pair'?'이전 파일과 이후 파일을 넣고 [비교]를 누르세요.':(m==='ixd'?'이전·이후 .ixd 를 넣고 [비교]를 누르세요.':'보고서 .dsd 와 연결·별도 .dsd 를 넣고 [비교]를 누르세요. (세 파일을 한꺼번에 끌어다 놓아도 됩니다)'),0);
   refreshRun();
 }
 $('modePair').onclick=()=>setMode('pair');
 $('modeRep').onclick=()=>setMode('rep');
+$('modeIxd').onclick=()=>setMode('ixd');
 
 function refreshRun(){
-  $('btnRun').disabled = mode==='pair' ? !(files.old&&files.new) : !(files.rep&&(files.con||files.sep));
+  $('btnRun').disabled = mode==='pair' ? !(files.old&&files.new) : (mode==='ixd' ? !(files.ixOld&&files.ixNew) : !(files.rep&&(files.con||files.sep)));
 }
 
 /* --- DSD↔DSD --- */
@@ -1344,7 +1653,21 @@ function setFile(side,f){
   refreshRun();
 }
 ['descOld','descNew'].forEach(id=>$(id).addEventListener('input',e=>{ e.target.dataset.user = e.target.value?'1':''; }));
+function setIxFile(side,f){
+  files[side]=f;
+  const id=side==='ixOld'?'IxOld':'IxNew';
+  const n=$('name'+id); n.textContent=f?f.name:'파일 선택 또는 드래그'; n.classList.toggle('empty',!f);
+  const d=$('desc'+id);
+  if(f && !d.dataset.user){ d.value=(side==='ixOld'?'이전':'이후')+' · '+fmtDate(f.lastModified||Date.now())+' 수정본'; }
+  refreshRun();
+}
+['descIxOld','descIxNew'].forEach(id=>$(id).addEventListener('input',e=>{ e.target.dataset.user = e.target.value?'1':''; }));
 $('btnSwap').onclick=()=>{
+  if(mode==='ixd'){
+    const t=files.ixOld; const dO=$('descIxOld'), dN=$('descIxNew'); const tv=dO.value, tu=dO.dataset.user;
+    dO.value=dN.value; dO.dataset.user=dN.dataset.user; dN.value=tv; dN.dataset.user=tu;
+    setIxFile('ixOld',files.ixNew); setIxFile('ixNew',t); return;
+  }
   const t=files.old; const dO=$('descOld'), dN=$('descNew'); const tv=dO.value, tu=dO.dataset.user;
   dO.value=dN.value; dO.dataset.user=dN.dataset.user; dN.value=tv; dN.dataset.user=tu;
   setFile('old',files.new); setFile('new',t);
@@ -1370,6 +1693,14 @@ async function setRepFile(slot,f){
   }catch(e){ k.textContent='· 읽기 오류'; k.classList.add('warn'); }
 }
 async function autoAssign(list){
+  const ix=list.filter(f=>/\.ixd$/i.test(f.name));
+  if(ix.length){
+    setMode('ixd');
+    const s=ix.slice(0,2).sort((a,b)=>(a.lastModified||0)-(b.lastModified||0));
+    setIxFile('ixOld',s[0]); if(s[1]) setIxFile('ixNew',s[1]);
+    status(s[1]?'수정 시각이 이른 파일을 이전으로 넣었습니다 — 맞지 않으면 ⇄ 로 바꾸고 [비교]를 누르세요.':'이후 파일도 넣어 주세요.',0);
+    return;
+  }
   status('파일 종류를 확인하는 중…',3);
   const res=[];
   for(const f of list){ try{ res.push({f, k:docKind(await loadDoc(f)).kind}); }catch(e){ res.push({f,k:'?'}); } }
@@ -1385,23 +1716,23 @@ async function autoAssign(list){
 }
 
 /* --- 드래그·선택 연결 --- */
-const SLOTS=[['old','dropOld','fileOld'],['new','dropNew','fileNew'],['rep','dropRep','fileRep'],['con','dropCon','fileCon'],['sep','dropSep','fileSep']];
+const SLOTS=[['old','dropOld','fileOld'],['new','dropNew','fileNew'],['ixOld','dropIxOld','fileIxOld'],['ixNew','dropIxNew','fileIxNew'],['rep','dropRep','fileRep'],['con','dropCon','fileCon'],['sep','dropSep','fileSep']];
 SLOTS.forEach(([slot,dropId,inpId])=>{
   const drop=$(dropId), inp=$(inpId);
-  const put=f=>{ if(slot==='old'||slot==='new') setFile(slot,f); else setRepFile(slot,f); };
+  const put=f=>{ if(slot==='old'||slot==='new') setFile(slot,f); else if(slot==='ixOld'||slot==='ixNew') setIxFile(slot,f); else setRepFile(slot,f); };
   inp.addEventListener('change',()=>put(inp.files[0]||null));
   drop.addEventListener('dragover',e=>{e.preventDefault();drop.classList.add('over');});
   drop.addEventListener('dragleave',()=>drop.classList.remove('over'));
   drop.addEventListener('drop',e=>{
     e.preventDefault(); e.stopPropagation(); drop.classList.remove('over');
-    const fs=[...e.dataTransfer.files].filter(f=>/\.(dsd|zip)$/i.test(f.name));
+    const fs=[...e.dataTransfer.files].filter(f=>/\.(dsd|zip|ixd)$/i.test(f.name));
     if(fs.length>1) autoAssign(fs); else if(fs[0]) put(fs[0]);
   });
 });
 document.body.addEventListener('dragover',e=>e.preventDefault());
 document.body.addEventListener('drop',e=>{
   if(e.target.closest('.drop')) return; e.preventDefault();
-  const fs=[...e.dataTransfer.files].filter(f=>/\.(dsd|zip)$/i.test(f.name));
+  const fs=[...e.dataTransfer.files].filter(f=>/\.(dsd|zip|ixd)$/i.test(f.name));
   if(fs.length) autoAssign(fs);
 });
 
@@ -1450,16 +1781,30 @@ async function runReport(){
   showResult(resultHtml);
   status('완료 — '+r.info.map(x=>`${x.label}: 변경 사항 ${x.real}건${x.nm?' · 명칭 '+x.nm+'건':''}`).join('  |  '),100);
 }
+async function runIxd(){
+  status('1/5 이전 .ixd 목록 읽는 중…',5); await tick();
+  const A=await readIxd(files.ixOld);
+  status('1/5 이후 .ixd 목록 읽는 중…',15); await tick();
+  const B=await readIxd(files.ixNew);
+  const meta={nameA:files.ixOld.name, nameB:files.ixNew.name, descA:$('descIxOld').value||'이전', descB:$('descIxNew').value||'이후'};
+  const r=await buildIxdResult(A,B,meta,(p,msg)=>status(msg,p));
+  resultHtml=r.html; resultName='비교__'+strip(files.ixOld.name)+'__vs__'+strip(files.ixNew.name)+'.html';
+  status('5/5 결과 표시 중…',95); await tick();
+  showResult(resultHtml);
+  const c=r.info.counts;
+  status(`완료 — 값 변경 ${c.chg} · 추가 ${c.add} · 삭제 ${c.del} · 라벨 ${c.nm} · 순서 ${c.mv} (바뀐 서식 ${r.info.changedForms.length}개)`,100);
+}
 $('btnRun').onclick=async()=>{
   try{
     $('btnRun').disabled=true;
-    if(mode==='pair') await runPair(); else await runReport();
+    if(mode==='pair') await runPair(); else if(mode==='ixd') await runIxd(); else await runReport();
     $('btnDown').disabled=false;
   }catch(e){ console.error(e); status('오류: '+e.message,0,true); }
   finally{ refreshRun(); }
 };
 $('btnDown').onclick=()=>{
-  const a=document.createElement('a'); a.href=URL.createObjectURL(new Blob([resultHtml],{type:'text/html'})); a.download=resultName; a.click();
+  const a=document.createElement('a'); a.href=URL.createObjectURL(new Blob([resultHtml],{type:'text/html'})); a.download=resultName;
+  document.body.appendChild(a); a.click(); a.remove();
   setTimeout(()=>URL.revokeObjectURL(a.href),2000);
 };
 setMode('pair');
