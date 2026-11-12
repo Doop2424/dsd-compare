@@ -159,7 +159,7 @@ main{flex:1;min-height:0;display:flex;flex-direction:column}
 </main>
 
 <script>
-const APP_VERSION = 'v0.6';
+const APP_VERSION = 'v0.7';
 document.getElementById('verLabel').textContent = APP_VERSION;
 
 
@@ -564,7 +564,7 @@ function tableDiff(bl, br, pairBase, summary){
 const STMT_NAMES=[['재무상태표','BS'],['포괄손익계산서','CI'],['손익계산서','IS'],['자본변동표','SCE'],['현금흐름표','CF']];
 const STMT_ORDER=['BS','IS','CI','SCE','CF'];
 function stmtKind(t){
-  const s=(t||'').replace(/\s+/g,'').replace(/^[\d\-.]+/,'').replace(/^\(?(연결|별도)\)?/,'');
+  const s=(t||'').replace(/\s+/g,'').replace(/^[\d\-.]+/,'').replace(/^(\(?(연결|별도)\)?|분기|반기)+/,'');   // 「분기재무상태표」「반기연결…」 등
   for(const [n,k] of STMT_NAMES) if(s.startsWith(n)) return k;
   return null;
 }
@@ -698,9 +698,12 @@ function reportPart(doc, which){
       stmts.push({kind, title, body:makeBlock(body,'')});
     }
   }
-  const notes=[];
+  let notes=[];
   if(ntSec) flattenBlocks(ntSec, notes, {report:true});
-  return {found:!!(fsSec||ntSec), stmts:normKinds(stmts), notes:notes.filter(b=>b.type!=='sec' && !isBoiler(b))};
+  notes=notes.filter(b=>b.type!=='sec' && !isBoiler(b));
+  // 블록태깅이 아닌 보고서: 주석 제목이 일반 문단(「1. 회사의 개요」)으로 들어 있음 → 번호 순서로 분리
+  if(!notes.some(b=>b.type==='nt')) notes=splitNoteTitles(notes, doc, null);
+  return {found:!!(fsSec||ntSec), stmts:normKinds(stmts), notes};
 }
 /* 감사(검토)전 DSD 쪽 */
 function auditPart(doc, refTitles){
@@ -785,11 +788,14 @@ function fsDiff(bA, bB, pidBase, summary){
   // ① 금액 묶음이 같은 행끼리 (순서 무관) — XBRL 은 소계 행 위치·순서가 감사보고서와 다를 수 있음
   const usedA=new Set(), usedB=new Set(); const order=[]; const pairsAll=[];
   const byKey=new Map(); RB.forEach((r,i)=>{ if(!byKey.has(r.key)) byKey.set(r.key,[]); byKey.get(r.key).push(i); });
-  RA.forEach((a,ai)=>{
-    const l=(byKey.get(a.key)||[]).filter(i=>!usedB.has(i)); if(!l.length) return;
-    let best=l[0], bs=-1; l.forEach(i=>{ const s=a.nlab===RB[i].nlab?2:similarity(a.nlab,RB[i].nlab)-Math.abs(i-ai)/1000; if(s>bs){bs=s;best=i;} });
-    usedA.add(ai); usedB.add(best); pairsAll.push([ai,best]); if(a.nlab!==RB[best].nlab) order.push(['nm',ai,best]);
-  });
+  // 같은 금액 묶음이 여러 행이면(소계=단일 항목 등) 과목명이 가장 비슷한 짝부터 확정
+  const eq=[];
+  RA.forEach((a,ai)=>{ (byKey.get(a.key)||[]).forEach(bi=>{ const b=RB[bi]; eq.push([a.nlab===b.nlab?2:similarity(a.nlab,b.nlab), -Math.abs(ai/RA.length-bi/RB.length), ai, bi]); }); });
+  eq.sort((x,y)=>y[0]-x[0] || y[1]-x[1]);
+  for(const [,,ai,bi] of eq){
+    if(usedA.has(ai)||usedB.has(bi)) continue;
+    usedA.add(ai); usedB.add(bi); pairsAll.push([ai,bi]); if(RA[ai].nlab!==RB[bi].nlab) order.push(['nm',ai,bi]);
+  }
   // ② 남은 행: 공통 금액·과목명 유사도로 짝 → 금액 변경, 짝 없으면 추가·삭제
   const restA=RA.map((r,i)=>i).filter(i=>!usedA.has(i)), restB=RB.map((r,i)=>i).filter(i=>!usedB.has(i));
   const cand=[];
