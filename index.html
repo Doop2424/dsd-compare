@@ -159,7 +159,7 @@ main{flex:1;min-height:0;display:flex;flex-direction:column}
 </main>
 
 <script>
-const APP_VERSION = 'v0.7';
+const APP_VERSION = 'v0.9';
 document.getElementById('verLabel').textContent = APP_VERSION;
 
 
@@ -206,7 +206,8 @@ async function readDsd(file){
 }
 
 const CONTAINER = new Set(['BODY','COVER','TOC','TABLE-GROUP']);
-const SKIP = new Set(['INSERTION','COMMENT','LIBRARYLIST','WARNING']);
+// INSERTION 은 편집기 '◆click◆ 삽입' 영역 — 안내문(COMMENT·LIBRARYLIST)만 빼고, 실제로 삽입된 내용(LIBRARY)은 읽는다
+const SKIP = new Set(['COMMENT','LIBRARYLIST','WARNING','FILENAME']);
 const LEAF = new Set(['P','TABLE','TITLE','COVER-TITLE','PGBRK']);
 
 function collectBlocks(doc){
@@ -899,6 +900,13 @@ function addChapter(ctx, textL, textR, cls, pair){
   ctx.R+='<div class="blk chapter-title '+(cls||'same')+(textR?'':' empty')+'">'+pR+'</div>';
 }
 
+/* 화면에 보이지 않는 서식 제거: 공백·줄바꿈에만 붙은 글자 서식(색·굵기 등)은 비교에서 무시 */
+function visibleHtml(h){
+  let prev;
+  do{ prev=h; h=h.replace(/<span(?: style="[^"]*")?>((?:\s|&nbsp;|<br>)*)<\/span>/g,'$1'); }while(h!==prev);
+  return h;
+}
+
 /* 블록 목록 비교 → ctx 에 좌우 HTML 누적 */
 function diffBlocks(ctx, blocksA, blocksB, opts, prog){
   const ops=seqDiff(blocksA,blocksB,b=>b.key,b=>b.key);
@@ -925,7 +933,7 @@ function diffBlocks(ctx, blocksA, blocksB, opts, prog){
     }
     if(it.kind==='same'){
       const hA=renderBlock(it.L), hB=renderBlock(it.R);
-      if(hA===hB || opts.report){
+      if(hA===hB || opts.report || visibleHtml(hA)===visibleHtml(hB)){
         ctx.stat.same++;
         ctx.L+='<div class="blk same" data-b="'+bid+'">'+hA+'</div>';
         ctx.R+='<div class="blk same" data-b="'+bid+'">'+hB+'</div>';
